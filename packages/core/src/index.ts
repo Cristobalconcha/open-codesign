@@ -179,6 +179,49 @@ export interface ReferenceUrlContext {
   excerpt?: string | undefined;
 }
 
+export interface EditContextMaterial {
+  /** Workspace-relative path to the source material. */
+  path: string;
+  /** MIME type of the material (e.g. "image/png"). */
+  type: string;
+  /** Semantic role: "wireframe", "mockup", "screenshot", "reference-image". */
+  role: string;
+  /** Human-readable description of the material. */
+  description?: string | undefined;
+}
+
+export interface EditContextDefinition {
+  /** Stable identifier for this definition (e.g. "color-palette"). */
+  id: string;
+  /** Category: "color", "typography", "layout", "spacing", "border", "shadow", "iconography". */
+  category: string;
+  /** Human-readable label shown in the UI. */
+  label: string;
+  /** Structured value object — shape depends on category. */
+  value: Record<string, unknown>;
+  /** Detection confidence: "high", "medium", or "low". */
+  confidence: 'high' | 'medium' | 'low';
+  /** Provenance of this definition: "wireframe-analysis" or "manual-override". */
+  source: string;
+  /** Brief description of what visual evidence supports this definition. */
+  evidence?: string | undefined;
+}
+
+export interface EditContext {
+  /** Schema version for forward-compatibility. */
+  schemaVersion: number;
+  /** Source materials used for analysis. */
+  materials: EditContextMaterial[];
+  /** All definitions detected (both active and open). */
+  detected: EditContextDefinition[];
+  /** IDs of definitions the user kept active (binding constraints). */
+  active: string[];
+  /** IDs of definitions the user explicitly left open. */
+  open: string[];
+  /** ISO-8601 timestamp of when the analysis was generated. */
+  generatedAt: string;
+}
+
 export interface ProjectContext {
   agentsMd?: string | undefined;
   designMd?: string | undefined;
@@ -189,6 +232,8 @@ export interface ProjectContext {
       }
     | undefined;
   settingsJson?: string | undefined;
+  /** Edit-mode constraints loaded from .codesign/edit-context.json. */
+  editContext?: EditContext | undefined;
 }
 
 export interface GenerateInput {

@@ -4,7 +4,12 @@ import http from 'node:http';
 import https from 'node:https';
 import net from 'node:net';
 import { extname, isAbsolute } from 'node:path';
-import type { AttachmentContext, ProjectContext, ReferenceUrlContext } from '@open-codesign/core';
+import type {
+  AttachmentContext,
+  EditContext,
+  ProjectContext,
+  ReferenceUrlContext,
+} from '@open-codesign/core';
 import {
   CodesignError,
   ERROR_CODES,
@@ -419,12 +424,41 @@ function safeProjectSettings(raw: string): string | undefined {
   return text === '{}' ? undefined : cleanText(text, MAX_PROJECT_SETTINGS_CHARS);
 }
 
+async function readEditContext(
+  workspaceRoot: string | undefined,
+): Promise<EditContext | undefined> {
+  if (!workspaceRoot) return undefined;
+  try {
+    const raw = await readWorkspaceText(
+      workspaceRoot,
+      '.codesign/edit-context.json',
+      MAX_PROJECT_CONTEXT_CHARS,
+    );
+    if (raw === undefined) return undefined;
+    const parsed = JSON.parse(raw) as unknown;
+    if (typeof parsed !== 'object' || parsed === null) return undefined;
+    const ctx = parsed as Record<string, unknown>;
+    if (
+      typeof ctx['schemaVersion'] !== 'number' ||
+      !Array.isArray(ctx['detected']) ||
+      !Array.isArray(ctx['active']) ||
+      !Array.isArray(ctx['open'])
+    ) {
+      return undefined;
+    }
+    return parsed as EditContext;
+  } catch {
+    return undefined;
+  }
+}
+
 async function readProjectContext(workspaceRoot: string | undefined): Promise<ProjectContext> {
   if (!workspaceRoot) return {};
-  const [agentsMd, rawDesignMd, rawSettings] = await Promise.all([
+  const [agentsMd, rawDesignMd, rawSettings, editContext] = await Promise.all([
     readWorkspaceText(workspaceRoot, 'AGENTS.md', MAX_PROJECT_CONTEXT_CHARS),
     readWorkspaceRawText(workspaceRoot, 'DESIGN.md'),
     readWorkspaceText(workspaceRoot, '.codesign/settings.json', MAX_PROJECT_SETTINGS_CHARS),
+    readEditContext(workspaceRoot),
   ]);
   const settingsJson = rawSettings === undefined ? undefined : safeProjectSettings(rawSettings);
   const designMd = rawDesignMd === undefined ? {} : designMdContext(rawDesignMd);
@@ -432,6 +466,7 @@ async function readProjectContext(workspaceRoot: string | undefined): Promise<Pr
     ...(agentsMd !== undefined ? { agentsMd } : {}),
     ...designMd,
     ...(settingsJson !== undefined ? { settingsJson } : {}),
+    ...(editContext !== undefined ? { editContext } : {}),
   };
 }
 

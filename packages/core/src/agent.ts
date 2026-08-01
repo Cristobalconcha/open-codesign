@@ -71,6 +71,7 @@ import {
 import {
   buildContextSections,
   buildUserPromptWithContext,
+  formatEditConstraintsContext,
   formatProjectDesignSystemContext,
   formatProjectInstructionsContext,
   formatProjectSettingsContext,
@@ -808,6 +809,12 @@ function projectContextSections(context: GenerateInput['projectContext']): strin
   return sections;
 }
 
+function editContextSection(context: GenerateInput['projectContext']): string[] {
+  if (!context?.editContext) return [];
+  const section = formatEditConstraintsContext(context.editContext);
+  return section ? [section] : [];
+}
+
 function workspaceFiles(fs: TextEditorFsCallbacks | undefined): string[] {
   if (!fs) return [];
   return fs
@@ -1253,6 +1260,7 @@ export async function generateViaAgent(
   const augmentedSystemPrompt = [
     encourageToolUse ? `${systemPrompt}\n\n${activeGuidance}` : systemPrompt,
     ...resourceResult.sections,
+    ...editContextSection(input.projectContext),
     ...projectContextSections(input.projectContext),
   ].join('\n\n');
 

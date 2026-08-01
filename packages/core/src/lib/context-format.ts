@@ -1,5 +1,5 @@
 import type { StoredDesignSystem } from '@open-codesign/shared';
-import type { AttachmentContext, ReferenceUrlContext } from '../index.js';
+import type { AttachmentContext, EditContext, ReferenceUrlContext } from '../index.js';
 
 export function escapeUntrustedXml(text: string): string {
   return text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
@@ -131,4 +131,80 @@ export function buildUserPromptWithContext(prompt: string, contextSections: stri
     'Use the following local context and references when making design decisions. Follow the design system closely when one is provided.',
     contextSections.join('\n\n'),
   ].join('\n\n');
+}
+
+/**
+ * Build a binding-constraints section from edit-context.json for the Edit mode.
+ *
+ * CRITICAL: This section is injected directly into the system prompt WITHOUT
+ * `<untrusted_scanned_content>` wrapping. It contains operational constraints
+ * the agent MUST follow. Only structured, known fields from the manifest are
+ * used — never free-text model output.
+ *
+ * Rules:
+ *  - active=true  → binding constraint (conservar)
+ *  - active=false → explicitly left open (abierto)
+ *  - not detected → implicitly open
+ *  - explicit user override → máxima prioridad
+ */
+export function formatEditConstraintsContext(editContext: EditContext): string | null {
+  const activeDefs = editContext.detected.filter((d) => editContext.active.includes(d.id));
+  const openDefs = editContext.detected.filter((d) => editContext.open.includes(d.id));
+
+  if (activeDefs.length === 0) return null;
+
+  const lines: string[] = [
+    '# Modo Editar — Restricciones visuales vinculantes',
+    '',
+    'Estás trabajando en modo Editar. El usuario subió materiales de referencia',
+    'y el sistema detectó definiciones visuales. Estas son las reglas operativas:',
+    '',
+    '## Definiciones activas (VINCULANTES — debes respetarlas exactamente)',
+    '',
+    ...activeDefs.map(
+      (d) =>
+        `- **${d.label}** [${d.category}, confianza: ${d.confidence}]` +
+        (d.evidence ? ` — ${d.evidence}` : ''),
+    ),
+    '',
+    'Para cada definición activa, aplica el valor estructurado correspondiente',
+    'del manifiesto edit-context.json. No las reinterpretes ni las ignores.',
+    '',
+  ];
+
+  if (openDefs.length > 0) {
+    lines.push(
+      '## Definiciones abiertas (el usuario las desmarcó — decide libremente)',
+      '',
+      ...openDefs.map((d) => `- ${d.label} [${d.category}]`),
+      '',
+    );
+  }
+
+  // Detect manual overrides — definitions with source "manual-override"
+  const overrides = activeDefs.filter((d) => d.source === 'manual-override');
+  if (overrides.length > 0) {
+    lines.push(
+      '## Overrides explícitos del usuario (MÁXIMA PRIORIDAD)',
+      '',
+      'Las siguientes definiciones fueron añadidas o modificadas manualmente por el usuario.',
+      'Tienen prioridad absoluta sobre cualquier detección automática o criterio por defecto.',
+      '',
+      ...overrides.map(
+        (d) => `- **${d.label}** [${d.category}]${d.evidence ? ` — ${d.evidence}` : ''}`,
+      ),
+      '',
+    );
+  }
+
+  lines.push(
+    '## Regla general',
+    '',
+    'Cualquier aspecto visual NO listado en "Definiciones activas" queda ABIERTO',
+    'para que lo determines según tu mejor criterio de diseño. Si el usuario añade',
+    'una definición EXPLÍCITA posterior en el chat, esa definición es vinculante',
+    'y tiene prioridad sobre las detecciones automáticas.',
+  );
+
+  return lines.join('\n');
 }
