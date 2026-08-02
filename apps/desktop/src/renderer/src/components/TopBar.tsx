@@ -12,7 +12,7 @@ export const TOPBAR_DRAG_SPACER_TEST_ID = 'topbar-drag-spacer';
 export const dragStyle = { WebkitAppRegion: 'drag' } as CSSProperties;
 export const noDragStyle = { WebkitAppRegion: 'no-drag' } as CSSProperties;
 
-const HUB_TABS: HubTab[] = ['recent', 'all', 'examples', 'resources'];
+export const HUB_TABS: HubTab[] = ['recent', 'all', 'examples', 'edit', 'resources'];
 
 const topbarButtonClass =
   'inline-flex h-9 items-center rounded-[var(--radius-sm)] px-[var(--space-2_5)] text-[var(--text-sm)] leading-none whitespace-nowrap transition-colors duration-[var(--duration-faster)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus-ring)]';

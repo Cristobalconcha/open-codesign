@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useCodesignStore } from '../store';
 import { DesignSystemsTab } from './hub/DesignSystemsTab';
+import { EditTab } from './hub/EditTab';
 import { ExamplesTab } from './hub/ExamplesTab';
 import { RecentTab } from './hub/RecentTab';
 import { YourDesignsTab } from './hub/YourDesignsTab';
@@ -41,6 +42,11 @@ export function HubView({ onUseExamplePrompt }: HubViewProps = {}) {
           {mounted.has('examples') ? (
             <div hidden={hubTab !== 'examples'}>
               <ExamplesTab onUsePrompt={(example) => onUseExamplePrompt?.(example.prompt)} />
+            </div>
+          ) : null}
+          {mounted.has('edit') ? (
+            <div hidden={hubTab !== 'edit'}>
+              <EditTab />
             </div>
           ) : null}
           {mounted.has('resources') ? (

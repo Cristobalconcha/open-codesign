@@ -101,7 +101,7 @@ export type SettingsTab =
   | 'storage'
   | 'diagnostics'
   | 'advanced';
-export type HubTab = 'recent' | 'all' | 'examples' | 'resources';
+export type HubTab = 'recent' | 'all' | 'examples' | 'resources' | 'edit';
 export type InteractionMode = 'default' | 'comment';
 export type PreviewViewport = 'desktop' | 'tablet' | 'mobile';
 export type PreviewZoomMode = 'manual' | 'fit';

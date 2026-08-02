@@ -11,6 +11,7 @@ import { migrateStaleCodexEntryIfNeeded, registerCodexOAuthIpc } from './codex-o
 import { configDir } from './config';
 import { registerConnectionIpc } from './connection-ipc';
 import { registerDiagnosticsIpc } from './diagnostics-ipc';
+import { registerEditModeIpc } from './edit-mode-ipc';
 import { app, BrowserWindow, clipboard, dialog, shell } from './electron-runtime';
 import { ensureUserTemplates, resolveBundledTemplatesDir } from './ensure-user-templates';
 import { registerExporterIpc } from './exporter-ipc';
@@ -269,6 +270,7 @@ if (!IS_VITEST) {
       const diagnosticsDb: Database | null = dbResult.ok ? dbResult.db : null;
       if (dbResult.ok) {
         registerSnapshotsIpc(dbResult.db);
+        registerEditModeIpc(dbResult.db);
         registerWorkspaceIpc(dbResult.db, getMainWindow);
         registerWorkspaceProtocolHandler({
           db: dbResult.db,

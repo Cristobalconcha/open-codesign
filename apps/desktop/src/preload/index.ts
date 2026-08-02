@@ -695,6 +695,19 @@ const api = {
       return () => ipcRenderer.removeListener('codesign:files:v1:changed', listener);
     },
   },
+  editMode: {
+    initWorkspace: (input: {
+      designId: string;
+      imageBase64: string;
+      imageFileName: string;
+      imageMediaType: string;
+      editContext: import('@open-codesign/core').EditContext;
+    }) =>
+      ipcRenderer.invoke('codesign:edit-mode:v1:init-workspace', {
+        schemaVersion: 1,
+        ...input,
+      }) as Promise<{ imagePath: string }>,
+  },
   snapshots: {
     listDesigns: () =>
       ipcRenderer.invoke('snapshots:v1:list-designs', { schemaVersion: 1 }) as Promise<Design[]>,
