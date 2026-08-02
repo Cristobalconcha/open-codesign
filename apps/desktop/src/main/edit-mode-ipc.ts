@@ -7,7 +7,12 @@ import { type Database, getDesign, touchDesignActivity } from './snapshots-db';
 import { resolveSafeWorkspaceChildPath } from './workspace-reader';
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
-const ALLOWED_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
+const ALLOWED_EXTENSIONS = new Map([
+  ['image/png', new Set(['.png'])],
+  ['image/jpeg', new Set(['.jpg', '.jpeg'])],
+  ['image/webp', new Set(['.webp'])],
+]);
+const BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 
 export interface EditModeInitInput {
   designId: string;
@@ -49,12 +54,17 @@ export function parseInput(raw: unknown): EditModeInitInput {
   if (typeof imageFileName !== 'string' || imageFileName.trim().length === 0) {
     badInput('imageFileName is required');
   }
-  if (typeof imageMediaType !== 'string' || !ALLOWED_MIME_TYPES.has(imageMediaType)) {
+  if (typeof imageMediaType !== 'string' || !ALLOWED_EXTENSIONS.has(imageMediaType)) {
     badInput('Unsupported image media type');
+  }
+  const extension = path.extname(imageFileName).toLowerCase();
+  if (!ALLOWED_EXTENSIONS.get(imageMediaType)?.has(extension)) {
+    badInput('Image file extension does not match its media type');
   }
   const parsedEditContext = parseEditContext(editContext);
   if (parsedEditContext === null) badInput('editContext is invalid');
 
+  if (!BASE64_PATTERN.test(imageBase64)) badInput('imageBase64 is invalid');
   const imageBytes = Buffer.from(imageBase64, 'base64');
   if (imageBytes.length === 0) badInput('imageBase64 is invalid');
   if (imageBytes.length > MAX_IMAGE_BYTES) {

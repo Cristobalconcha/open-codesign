@@ -6,11 +6,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EditTab } from './EditTab';
 
 const createNewDesign = vi.fn();
+const softDeleteDesign = vi.fn();
 const setView = vi.fn();
 
 vi.mock('../../store', () => ({
   useCodesignStore: (selector: (state: unknown) => unknown) =>
-    selector({ createNewDesign, setView }),
+    selector({ createNewDesign, softDeleteDesign, setView }),
 }));
 
 function setInputFile(input: HTMLInputElement, file: File): void {
@@ -66,12 +67,12 @@ describe('EditTab', () => {
     );
     await act(async () => replace?.click());
     const replacementInput = container.querySelector<HTMLInputElement>('#edit-file-input');
-    await act(async () =>
-      setInputFile(
-        replacementInput as HTMLInputElement,
-        new File(['second'], 'diseño.png', { type: 'image/png' }),
-      ),
-    );
+    const dropZone = replacementInput?.parentElement;
+    const drop = new Event('drop', { bubbles: true });
+    Object.defineProperty(drop, 'dataTransfer', {
+      value: { files: [new File(['second'], 'diseño.png', { type: 'image/png' })] },
+    });
+    await act(async () => dropZone?.dispatchEvent(drop));
     expect(revokeObjectURL).toHaveBeenCalledTimes(1);
 
     const analyze = Array.from(container.querySelectorAll('button')).find((button) =>
@@ -103,6 +104,26 @@ describe('EditTab', () => {
       }),
     );
     expect(setView).toHaveBeenCalledWith('workspace');
+  });
+
+  it('removes a newly created design when workspace initialization fails', async () => {
+    initWorkspace.mockRejectedValueOnce(new Error('Disk full'));
+    await act(async () => root.render(<EditTab />));
+    const input = container.querySelector<HTMLInputElement>('#edit-file-input') as HTMLInputElement;
+    await act(async () => setInputFile(input, new File(['ok'], 'ok.png', { type: 'image/png' })));
+    const analyze = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Analyze Wireframe'),
+    );
+    await act(async () => analyze?.click());
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 650)));
+    const start = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Start Designing'),
+    );
+    await act(async () => start?.click());
+
+    expect(softDeleteDesign).toHaveBeenCalledWith('design-1');
+    expect(setView).not.toHaveBeenCalled();
+    expect(container.textContent).toContain('Disk full');
   });
 
   it('rejects oversized files and revokes the active preview on unmount', async () => {

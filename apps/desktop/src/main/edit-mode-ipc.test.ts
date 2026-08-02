@@ -47,6 +47,7 @@ async function fixture() {
 
 function input(designId: string) {
   return {
+    schemaVersion: 1,
     designId,
     imageBase64: Buffer.from('image-bytes').toString('base64'),
     imageFileName: 'mock.png',
@@ -104,6 +105,10 @@ describe('edit mode workspace initialization', () => {
     expect(() =>
       parseInput({ ...input('design'), imageMediaType: 'image/gif', schemaVersion: 1 }),
     ).toThrow(/media type/);
+    expect(() => parseInput({ ...input('design'), imageBase64: '%%%=' })).toThrow(/imageBase64/);
+    expect(() => parseInput({ ...input('design'), imageFileName: 'mock.webp' })).toThrow(
+      /extension/,
+    );
   });
 
   it('resolves the workspace from designId and rejects unknown designs', async () => {

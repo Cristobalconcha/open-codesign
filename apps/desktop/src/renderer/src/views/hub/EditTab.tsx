@@ -34,6 +34,7 @@ export function EditTab() {
   const previewUrlRef = useRef<string | null>(null);
 
   const createNewDesign = useCodesignStore((s) => s.createNewDesign);
+  const softDeleteDesign = useCodesignStore((s) => s.softDeleteDesign);
   const setView = useCodesignStore((s) => s.setView);
 
   const replaceFile = useCallback((selected: File) => {
@@ -119,8 +120,12 @@ export function EditTab() {
     if (!file || creating || analyzing) return;
     setCreating(true);
     setError(null);
+    let createdDesignId: string | null = null;
 
     try {
+      if (!window.codesign?.editMode?.initWorkspace) {
+        throw new Error('Edit mode workspace service is unavailable');
+      }
       const activeDefs = detected.filter((d) => activeIds.has(d.id));
       const openDefs = detected.filter((d) => !activeIds.has(d.id));
 
@@ -146,26 +151,32 @@ export function EditTab() {
         setError('Failed to create design');
         return;
       }
+      createdDesignId = design.id;
 
       // Atomic workspace init via dedicated IPC
-      if (window.codesign?.editMode?.initWorkspace) {
-        const imageBase64 = arrayBufferToBase64(await file.file.arrayBuffer());
-        await window.codesign.editMode.initWorkspace({
-          designId: design.id,
-          imageBase64,
-          imageFileName: file.file.name,
-          imageMediaType: file.file.type,
-          editContext,
-        });
-      }
+      const imageBase64 = arrayBufferToBase64(await file.file.arrayBuffer());
+      await window.codesign.editMode.initWorkspace({
+        designId: design.id,
+        imageBase64,
+        imageFileName: file.file.name,
+        imageMediaType: file.file.type,
+        editContext,
+      });
 
       setView('workspace');
     } catch (err) {
+      if (createdDesignId !== null) {
+        try {
+          await softDeleteDesign(createdDesignId);
+        } catch {
+          // Preserve the initialization error; the incomplete design remains recoverable/deletable.
+        }
+      }
       setError(err instanceof Error ? err.message : 'Failed to create workspace');
     } finally {
       setCreating(false);
     }
-  }, [file, detected, activeIds, createNewDesign, setView, creating, analyzing]);
+  }, [file, detected, activeIds, createNewDesign, softDeleteDesign, setView, creating, analyzing]);
 
   const handleClearFile = useCallback(() => {
     if (previewUrlRef.current !== null) URL.revokeObjectURL(previewUrlRef.current);
