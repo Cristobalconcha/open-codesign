@@ -161,11 +161,15 @@ export function formatEditConstraintsContext(editContext: EditContext): string |
     '',
     '## Definiciones activas (VINCULANTES — debes respetarlas exactamente)',
     '',
-    ...activeDefs.map(
-      (d) =>
-        `- **${d.label}** [${d.category}, confianza: ${d.confidence}]` +
-        (d.evidence ? ` — ${d.evidence}` : ''),
-    ),
+    ...activeDefs.map((d) => {
+      const effectiveValue = d.resolution === 'replace' ? d.overrideValue : d.value;
+      const decision = d.resolution === 'replace' ? 'REEMPLAZO EXPLÍCITO' : 'CONSERVAR';
+      return (
+        `- **${d.label}** [${d.category}, ${decision}, autoridad: ${d.authority ?? 'unknown'}, uso: ${d.usage ?? 'approved'}, confianza: ${d.confidence}]` +
+        `\n  Valor: ${JSON.stringify(effectiveValue ?? {})}` +
+        (d.evidence ? `\n  Evidencia: ${d.evidence}` : '')
+      );
+    }),
     '',
     'Para cada definición activa, aplica el valor estructurado correspondiente',
     'del manifiesto edit-context.json. No las reinterpretes ni las ignores.',
@@ -181,8 +185,25 @@ export function formatEditConstraintsContext(editContext: EditContext): string |
     );
   }
 
+  const guarded = activeDefs.filter(
+    (d) => d.authority === 'proposal' || d.usage === 'confirm-before-use' || d.usage === 'private',
+  );
+  if (guarded.length > 0) {
+    lines.push(
+      '## Variables condicionadas (NO presentar como hechos confirmados)',
+      '',
+      ...guarded.map(
+        (d) =>
+          `- **${d.label}**: ${d.usage === 'private' ? 'PRIVADA — no publicar' : 'requiere confirmación antes de usar'}`,
+      ),
+      '',
+    );
+  }
+
   // Detect manual overrides — definitions with source "manual-override"
-  const overrides = activeDefs.filter((d) => d.source === 'manual-override');
+  const overrides = activeDefs.filter(
+    (d) => d.source === 'manual-override' || d.resolution === 'replace',
+  );
   if (overrides.length > 0) {
     lines.push(
       '## Overrides explícitos del usuario (MÁXIMA PRIORIDAD)',

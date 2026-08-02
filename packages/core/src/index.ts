@@ -49,6 +49,16 @@ export {
   type DesignSkillName,
   loadDesignSkills,
 } from './design-skills/index.js';
+export {
+  buildDesignAnalysisUserPrompt,
+  DESIGN_ANALYSIS_SYSTEM_PROMPT,
+  type DesignAnalysisAuthority,
+  type DesignAnalysisConflict,
+  type DesignAnalysisResult,
+  type DesignAnalysisSource,
+  extractDesignAnalysisJson,
+  parseDesignAnalysis,
+} from './edit-analysis.js';
 export { parseEditContext } from './edit-context.js';
 export {
   PROVIDER_KEY_HELP_URL,
@@ -181,12 +191,18 @@ export interface ReferenceUrlContext {
 }
 
 export interface EditContextMaterial {
+  /** Stable source identifier used by definition provenance (schema v2+). */
+  id?: string | undefined;
   /** Workspace-relative path to the source material. */
   path: string;
   /** MIME type of the material (e.g. "image/png"). */
   type: string;
   /** Semantic role: "wireframe", "mockup", "screenshot", "reference-image". */
   role: string;
+  /** How this source entered the analysis pipeline. */
+  kind?: 'image' | 'document' | 'text' | 'url' | 'asset' | 'workspace' | undefined;
+  /** Original URL, filename, or user-facing source label. */
+  locator?: string | undefined;
   /** Human-readable description of the material. */
   description?: string | undefined;
 }
@@ -200,17 +216,44 @@ export interface EditContextDefinition {
   label: string;
   /** Structured value object — shape depends on category. */
   value: Record<string, unknown>;
+  /** Original analyzer output, retained when the user supplies a replacement. */
+  detectedValue?: Record<string, unknown> | undefined;
+  /** Explicit replacement supplied by the user. Never generated implicitly. */
+  overrideValue?: Record<string, unknown> | undefined;
+  /** User decision for this variable (schema v2+). */
+  resolution?: 'preserve' | 'replace' | 'open' | undefined;
+  /** What gives this variable authority; proposals must not become confirmed silently. */
+  authority?:
+    | 'confirmed'
+    | 'proposal'
+    | 'inferred'
+    | 'fact'
+    | 'restriction'
+    | 'unknown'
+    | undefined;
+  /** Publication/use guard derived from the source material. */
+  usage?: 'approved' | 'confirm-before-use' | 'private' | undefined;
   /** Detection confidence: "high", "medium", or "low". */
   confidence: 'high' | 'medium' | 'low';
   /** Provenance of this definition: "wireframe-analysis" or "manual-override". */
   source: string;
   /** Brief description of what visual evidence supports this definition. */
   evidence?: string | undefined;
+  /** Traceable evidence supporting the detection. */
+  provenance?:
+    | Array<{
+        materialId: string;
+        locator?: string | undefined;
+        excerpt?: string | undefined;
+      }>
+    | undefined;
+  /** Deliverables or contexts to which this variable applies. */
+  appliesTo?: string[] | undefined;
 }
 
 export interface EditContext {
   /** Schema version for forward-compatibility. */
-  schemaVersion: number;
+  schemaVersion: 1 | 2;
   /** Source materials used for analysis. */
   materials: EditContextMaterial[];
   /** All definitions detected (both active and open). */
