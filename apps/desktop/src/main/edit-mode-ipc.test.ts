@@ -4,6 +4,7 @@ import path from 'node:path';
 import type { EditContext } from '@open-codesign/core';
 import { afterEach, describe, expect, it } from 'vitest';
 import { initEditModeWorkspace, parseInput } from './edit-mode-ipc';
+import { preparePromptContext } from './prompt-context';
 import { createDesign, initInMemoryDb, updateDesignWorkspace } from './snapshots-db';
 
 const temporaryRoots: string[] = [];
@@ -67,6 +68,9 @@ describe('edit mode workspace initialization', () => {
     expect(saved.materials[0]?.path).toBe(result.imagePath);
     expect(saved.detected[0]?.confidence).toBe('high');
     expect(saved.detected[0]?.evidence).toBe('Visible grid');
+
+    const prepared = await preparePromptContext({ workspaceRoot: workspace });
+    expect(prepared.projectContext.editContext).toEqual(saved);
   });
 
   it('allocates a unique name without overwriting an existing reference', async () => {

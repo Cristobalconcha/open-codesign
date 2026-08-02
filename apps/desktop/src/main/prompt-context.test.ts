@@ -51,6 +51,39 @@ describe('preparePromptContext', () => {
     );
   };
 
+  it('loads a valid edit context and keeps create workspaces unchanged when absent', async () => {
+    const editWorkspace = await fs.mkdtemp(path.join(os.tmpdir(), 'codesign-edit-context-'));
+    const createWorkspace = await fs.mkdtemp(path.join(os.tmpdir(), 'codesign-create-context-'));
+    await fs.mkdir(path.join(editWorkspace, '.codesign'), { recursive: true });
+    await fs.writeFile(
+      path.join(editWorkspace, '.codesign', 'edit-context.json'),
+      JSON.stringify({
+        schemaVersion: 1,
+        materials: [{ path: 'references/mock.png', type: 'image/png', role: 'wireframe' }],
+        detected: [
+          {
+            id: 'layout',
+            category: 'layout',
+            label: 'Layout',
+            value: {},
+            confidence: 'high',
+            source: 'wireframe-analysis',
+            evidence: 'Visible grid',
+          },
+        ],
+        active: ['layout'],
+        open: [],
+        generatedAt: '2026-08-02T00:00:00.000Z',
+      }),
+    );
+
+    const edited = await preparePromptContext({ workspaceRoot: editWorkspace });
+    const created = await preparePromptContext({ workspaceRoot: createWorkspace });
+    expect(edited.projectContext.editContext?.active).toEqual(['layout']);
+    expect(edited.projectContext.editContext?.detected[0]?.evidence).toBe('Visible grid');
+    expect(created.projectContext.editContext).toBeUndefined();
+  });
+
   it('throws a CodesignError when an attachment cannot be read', async () => {
     await expect(
       preparePromptContext({

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   formatAttachments,
   formatDesignSystem,
+  formatEditConstraintsContext,
   formatProjectDesignSystemContext,
   formatProjectInstructionsContext,
   formatProjectSettingsContext,
@@ -25,6 +26,39 @@ const DESIGN_SYSTEM: StoredDesignSystem = {
 };
 
 describe('context formatting', () => {
+  it('formats active edit constraints as trusted operational instructions', () => {
+    const formatted = formatEditConstraintsContext({
+      schemaVersion: 1,
+      materials: [{ path: 'references/mock.png', type: 'image/png', role: 'wireframe' }],
+      detected: [
+        {
+          id: 'layout',
+          category: 'layout',
+          label: 'Layout',
+          value: {},
+          confidence: 'high',
+          source: 'wireframe-analysis',
+          evidence: 'Visible grid',
+        },
+        {
+          id: 'color',
+          category: 'color',
+          label: 'Palette',
+          value: {},
+          confidence: 'medium',
+          source: 'wireframe-analysis',
+        },
+      ],
+      active: ['layout'],
+      open: ['color'],
+      generatedAt: '2026-08-02T00:00:00.000Z',
+    });
+
+    expect(formatted).toContain('Layout');
+    expect(formatted).toContain('Palette');
+    expect(formatted).toContain('VINCULANTES');
+    expect(formatted).not.toContain('<untrusted_scanned_content');
+  });
   it('wraps design-system context as untrusted data', () => {
     const formatted = formatDesignSystem(DESIGN_SYSTEM);
 
