@@ -2,7 +2,7 @@ import type { WorkspaceImportBlobInput, WorkspaceImportFileInput } from '../../.
 
 type FileWithPath = File & { path?: string };
 
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
+export function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   let binary = '';
   const chunkSize = 0x8000;

@@ -1,6 +1,8 @@
 import type { EditContext, EditContextDefinition } from '@open-codesign/core';
 import { Upload, X } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { validateEditReferenceFile } from '../../lib/edit-mode-file';
+import { arrayBufferToBase64 } from '../../lib/file-ingest';
 import { useCodesignStore } from '../../store';
 
 const MVP_DEFINITIONS: Omit<EditContextDefinition, 'id' | 'confidence' | 'source' | 'evidence'>[] =
@@ -29,40 +31,53 @@ export function EditTab() {
   const [activeIds, setActiveIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const previewUrlRef = useRef<string | null>(null);
 
   const createNewDesign = useCodesignStore((s) => s.createNewDesign);
   const setView = useCodesignStore((s) => s.setView);
 
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = e.target.files?.[0];
-    if (!selected) return;
-    if (!selected.type.startsWith('image/')) {
-      setError('Please select an image file (PNG, JPG, WEBP).');
+  const replaceFile = useCallback((selected: File) => {
+    const validationError = validateEditReferenceFile(selected);
+    if (validationError !== null) {
+      setError(validationError);
       return;
     }
+    if (previewUrlRef.current !== null) URL.revokeObjectURL(previewUrlRef.current);
     setError(null);
     setDetected([]);
     setActiveIds(new Set());
     const previewUrl = URL.createObjectURL(selected);
+    previewUrlRef.current = previewUrl;
     setFile({ file: selected, previewUrl });
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    const dropped = e.dataTransfer.files?.[0];
-    if (!dropped?.type.startsWith('image/')) {
-      setError('Please drop an image file (PNG, JPG, WEBP).');
-      return;
-    }
-    setError(null);
-    setDetected([]);
-    setActiveIds(new Set());
-    const previewUrl = URL.createObjectURL(dropped);
-    setFile({ file: dropped, previewUrl });
-  }, []);
+  useEffect(
+    () => () => {
+      if (previewUrlRef.current !== null) URL.revokeObjectURL(previewUrlRef.current);
+    },
+    [],
+  );
+
+  const handleFileSelect = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const selected = e.target.files?.[0];
+      if (selected) replaceFile(selected);
+      e.target.value = '';
+    },
+    [replaceFile],
+  );
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      const dropped = e.dataTransfer.files?.[0];
+      if (dropped) replaceFile(dropped);
+    },
+    [replaceFile],
+  );
 
   const handleAnalyze = useCallback(async () => {
-    if (!file) return;
+    if (!file || analyzing || creating) return;
     setAnalyzing(true);
     setError(null);
 
@@ -86,7 +101,7 @@ export function EditTab() {
     } finally {
       setAnalyzing(false);
     }
-  }, [file]);
+  }, [file, analyzing, creating]);
 
   const toggleDefinition = useCallback((id: string) => {
     setActiveIds((prev) => {
@@ -101,7 +116,7 @@ export function EditTab() {
   }, []);
 
   const handleCreate = useCallback(async () => {
-    if (!file) return;
+    if (!file || creating || analyzing) return;
     setCreating(true);
     setError(null);
 
@@ -134,10 +149,7 @@ export function EditTab() {
 
       // Atomic workspace init via dedicated IPC
       if (window.codesign?.editMode?.initWorkspace) {
-        const buffer = await file.file.arrayBuffer();
-        const imageBase64 = btoa(
-          new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), ''),
-        );
+        const imageBase64 = arrayBufferToBase64(await file.file.arrayBuffer());
         await window.codesign.editMode.initWorkspace({
           designId: design.id,
           imageBase64,
@@ -153,15 +165,16 @@ export function EditTab() {
     } finally {
       setCreating(false);
     }
-  }, [file, detected, activeIds, createNewDesign, setView]);
+  }, [file, detected, activeIds, createNewDesign, setView, creating, analyzing]);
 
   const handleClearFile = useCallback(() => {
-    if (file) URL.revokeObjectURL(file.previewUrl);
+    if (previewUrlRef.current !== null) URL.revokeObjectURL(previewUrlRef.current);
+    previewUrlRef.current = null;
     setFile(null);
     setDetected([]);
     setActiveIds(new Set());
     setError(null);
-  }, [file]);
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -216,7 +229,7 @@ export function EditTab() {
                 {!detected.length && (
                   <button
                     onClick={handleAnalyze}
-                    disabled={analyzing}
+                    disabled={analyzing || creating}
                     className="px-4 py-1.5 text-[var(--text-sm)] rounded-[var(--radius-md)] bg-[var(--color-accent)] text-white hover:opacity-90 disabled:opacity-50"
                   >
                     {analyzing ? 'Analyzing…' : 'Analyze Wireframe'}
@@ -224,6 +237,7 @@ export function EditTab() {
                 )}
                 <button
                   onClick={handleClearFile}
+                  disabled={analyzing || creating}
                   className="px-3 py-1.5 text-[var(--text-sm)] rounded-[var(--radius-md)] border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface)]"
                 >
                   <X className="w-4 h-4 inline mr-1" />
@@ -285,7 +299,7 @@ export function EditTab() {
 
           <button
             onClick={handleCreate}
-            disabled={creating}
+            disabled={creating || analyzing}
             className="w-full py-2.5 text-[var(--text-sm)] font-medium rounded-[var(--radius-md)] bg-[var(--color-accent)] text-white hover:opacity-90 disabled:opacity-50"
           >
             {creating ? 'Creating workspace…' : `Start Designing (${activeIds.size} constraints)`}

@@ -4,11 +4,12 @@ import http from 'node:http';
 import https from 'node:https';
 import net from 'node:net';
 import { extname, isAbsolute } from 'node:path';
-import type {
-  AttachmentContext,
-  EditContext,
-  ProjectContext,
-  ReferenceUrlContext,
+import {
+  type AttachmentContext,
+  type EditContext,
+  type ProjectContext,
+  parseEditContext,
+  type ReferenceUrlContext,
 } from '@open-codesign/core';
 import {
   CodesignError,
@@ -435,18 +436,7 @@ async function readEditContext(
       MAX_PROJECT_CONTEXT_CHARS,
     );
     if (raw === undefined) return undefined;
-    const parsed = JSON.parse(raw) as unknown;
-    if (typeof parsed !== 'object' || parsed === null) return undefined;
-    const ctx = parsed as Record<string, unknown>;
-    if (
-      typeof ctx['schemaVersion'] !== 'number' ||
-      !Array.isArray(ctx['detected']) ||
-      !Array.isArray(ctx['active']) ||
-      !Array.isArray(ctx['open'])
-    ) {
-      return undefined;
-    }
-    return parsed as EditContext;
+    return parseEditContext(JSON.parse(raw) as unknown) ?? undefined;
   } catch {
     return undefined;
   }

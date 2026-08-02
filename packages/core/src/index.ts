@@ -49,6 +49,7 @@ export {
   type DesignSkillName,
   loadDesignSkills,
 } from './design-skills/index.js';
+export { parseEditContext } from './edit-context.js';
 export {
   PROVIDER_KEY_HELP_URL,
   remapProviderError,

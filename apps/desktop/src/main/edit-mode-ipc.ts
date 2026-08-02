@@ -1,6 +1,6 @@
 import { mkdir, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import type { EditContext } from '@open-codesign/core';
+import { type EditContext, parseEditContext } from '@open-codesign/core';
 import { CodesignError, ERROR_CODES } from '@open-codesign/shared';
 import { ipcMain } from './electron-runtime';
 import { type Database, getDesign, touchDesignActivity } from './snapshots-db';
@@ -52,7 +52,8 @@ export function parseInput(raw: unknown): EditModeInitInput {
   if (typeof imageMediaType !== 'string' || !ALLOWED_MIME_TYPES.has(imageMediaType)) {
     badInput('Unsupported image media type');
   }
-  validateEditContext(editContext);
+  const parsedEditContext = parseEditContext(editContext);
+  if (parsedEditContext === null) badInput('editContext is invalid');
 
   const imageBytes = Buffer.from(imageBase64, 'base64');
   if (imageBytes.length === 0) badInput('imageBase64 is invalid');
@@ -60,24 +61,13 @@ export function parseInput(raw: unknown): EditModeInitInput {
     throw new CodesignError('Image exceeds 10 MB limit', ERROR_CODES.ATTACHMENT_TOO_LARGE);
   }
 
-  return { designId, imageBase64, imageFileName, imageMediaType, editContext };
-}
-
-function validateEditContext(value: unknown): asserts value is EditContext {
-  if (typeof value !== 'object' || value === null || Array.isArray(value))
-    badInput('editContext is invalid');
-  const context = value as Record<string, unknown>;
-  if (context['schemaVersion'] !== 1) badInput('editContext.schemaVersion must be 1');
-  if (!Array.isArray(context['materials']) || context['materials'].length === 0) {
-    badInput('editContext.materials is required');
-  }
-  if (
-    !Array.isArray(context['detected']) ||
-    !Array.isArray(context['active']) ||
-    !Array.isArray(context['open'])
-  ) {
-    badInput('editContext definition lists are invalid');
-  }
+  return {
+    designId,
+    imageBase64,
+    imageFileName,
+    imageMediaType,
+    editContext: parsedEditContext,
+  };
 }
 
 function safeImageName(input: string): string {
