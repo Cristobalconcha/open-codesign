@@ -11,6 +11,7 @@ import { migrateStaleCodexEntryIfNeeded, registerCodexOAuthIpc } from './codex-o
 import { configDir } from './config';
 import { registerConnectionIpc } from './connection-ipc';
 import { registerDiagnosticsIpc } from './diagnostics-ipc';
+import { registerEditAnalysisIpc } from './edit-analysis-ipc';
 import { registerEditModeIpc } from './edit-mode-ipc';
 import { app, BrowserWindow, clipboard, dialog, shell } from './electron-runtime';
 import { ensureUserTemplates, resolveBundledTemplatesDir } from './ensure-user-templates';
@@ -307,6 +308,7 @@ if (!IS_VITEST) {
       registerPreferencesIpc();
       registerMemoryIpc();
       registerImageGenerationSettingsIpc();
+      registerEditAnalysisIpc();
       registerExporterIpc(getMainWindow, diagnosticsDb);
       registerDiagnosticsIpc(diagnosticsDb);
       registerAskIpc();

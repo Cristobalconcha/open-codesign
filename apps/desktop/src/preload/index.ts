@@ -9,6 +9,8 @@ import type {
   CommentStatus,
   Design,
   DesignSnapshot,
+  EditAnalysisPayloadV1,
+  EditAnalysisSourceInput,
   ExternalConfigsDetection,
   GeneratePayloadV1,
   ListEventsInput,
@@ -34,6 +36,7 @@ import type {
   ModelsListResponse,
   TestEndpointResponse,
 } from '../main/connection-ipc';
+import type { EditAnalysisResponse } from '../main/edit-analysis-ipc';
 import type { ImageGenerationSettingsView } from '../main/image-generation-settings';
 
 export type {
@@ -696,6 +699,11 @@ const api = {
     },
   },
   editMode: {
+    analyze: (input: Omit<EditAnalysisPayloadV1, 'schemaVersion'>) =>
+      ipcRenderer.invoke('codesign:edit-analysis:v1:analyze', {
+        schemaVersion: 1,
+        ...input,
+      } satisfies EditAnalysisPayloadV1) as Promise<EditAnalysisResponse>,
     initWorkspace: (input: {
       designId: string;
       imageBase64: string;
@@ -707,6 +715,15 @@ const api = {
         schemaVersion: 1,
         ...input,
       }) as Promise<{ imagePath: string }>,
+    initWorkspaceSources: (input: {
+      designId: string;
+      sources: EditAnalysisSourceInput[];
+      editContext: import('@open-codesign/core').EditContext;
+    }) =>
+      ipcRenderer.invoke('codesign:edit-mode:v2:init-workspace', {
+        schemaVersion: 2,
+        ...input,
+      }) as Promise<{ sourcePaths: Record<string, string> }>,
   },
   snapshots: {
     listDesigns: () =>

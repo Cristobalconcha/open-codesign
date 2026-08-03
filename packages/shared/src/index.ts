@@ -152,6 +152,64 @@ export const LocalInputFile = z
   .strict();
 export type LocalInputFile = z.infer<typeof LocalInputFile>;
 
+// Correlates renderer/main/core work for a single request. Constrained so it
+// cannot carry LF/CR into logs or IPC diagnostics.
+const GenerationId = z
+  .string()
+  .min(1)
+  .max(128)
+  .regex(/^[A-Za-z0-9_-]+$/, 'generationId must be alphanumeric, _ or -');
+
+const EditAnalysisSourceId = z
+  .string()
+  .min(1)
+  .max(80)
+  .regex(/^[A-Za-z0-9_-]+$/);
+
+export const EditAnalysisSourceInput = z.discriminatedUnion('kind', [
+  z
+    .object({
+      kind: z.literal('text'),
+      id: EditAnalysisSourceId,
+      label: z.string().min(1).max(240),
+      text: z.string().min(1).max(120_000),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.enum(['image', 'document', 'asset', 'workspace']),
+      id: EditAnalysisSourceId,
+      label: z.string().min(1).max(240),
+      file: LocalInputFile,
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('url'),
+      id: EditAnalysisSourceId,
+      label: z.string().min(1).max(240),
+      url: z.string().url().max(4_096),
+    })
+    .strict(),
+]);
+export type EditAnalysisSourceInput = z.infer<typeof EditAnalysisSourceInput>;
+
+export const EditAnalysisPayloadV1 = z
+  .object({
+    schemaVersion: z.literal(1),
+    analysisId: GenerationId,
+    model: ModelRef,
+    sources: z.array(EditAnalysisSourceInput).min(1).max(20),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    const ids = value.sources.map((source) => source.id);
+    if (new Set(ids).size !== ids.length) {
+      ctx.addIssue({ code: 'custom', message: 'Source ids must be unique', path: ['sources'] });
+    }
+  });
+export type EditAnalysisPayloadV1 = z.infer<typeof EditAnalysisPayloadV1>;
+
 export const ElementSelectionRect = z
   .object({
     top: z.number(),
@@ -171,16 +229,6 @@ export const SelectedElement = z
   })
   .strict();
 export type SelectedElement = z.infer<typeof SelectedElement>;
-
-// Correlates renderer/main/core log lines for a single generation. Constrained
-// to alphanumerics + `_`/`-` so it cannot carry LF/CR into a log line (defense
-// in depth — log formatting also escapes, but belt-and-braces for payloads
-// that become `runId` fields via AsyncLocalStorage).
-const GenerationId = z
-  .string()
-  .min(1)
-  .max(128)
-  .regex(/^[A-Za-z0-9_-]+$/, 'generationId must be alphanumeric, _ or -');
 
 export const GeneratePayloadV1 = z
   .object({
