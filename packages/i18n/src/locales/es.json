@@ -25,6 +25,33 @@
     "title": "Aclaración rápida",
     "submit": "Responder"
   },
+  "contextReview": {
+    "title": "Revisar la definición del diseño",
+    "subtitle": "La IA encontró estas decisiones en tu descripción y referencias. Confirma qué usar antes de generar.",
+    "promptSourceLabel": "Descriptor del proyecto",
+    "analyzing": "Analizando la descripción y las referencias…",
+    "saving": "Guardando decisiones…",
+    "confirm": "Confirmar y generar",
+    "useDetected": "Usar como fue detectado",
+    "replace": "Reemplazar",
+    "leaveOpen": "Dejar abierto para la IA",
+    "evidence": "Evidencia",
+    "provenance": "Procedencia",
+    "replacementFor": "Valor de reemplazo para {{label}}",
+    "conflicts": "Conflictos por revisar",
+    "openQuestions": "Aspectos abiertos",
+    "noVariables": "No se detectaron variables explícitas. Puedes continuar para que la IA las proponga.",
+    "notes": {
+      "promptTruncated": "El descriptor fue recortado al límite de análisis.",
+      "tooManySources": "Algunas referencias se omitieron porque el análisis acepta un máximo de 20 fuentes.",
+      "unsupportedFile": "{{name}} no pudo analizarse como un insumo de diseño compatible.",
+      "invalidUrl": "La URL de referencia fue omitida: {{reason}}"
+    },
+    "errors": {
+      "analysisUnavailable": "Configura un proveedor y un modelo antes de analizar el diseño.",
+      "persistUnavailable": "El servicio de contexto del workspace no está disponible. No se generó nada."
+    }
+  },
   "toast": {
     "error": {
       "report": "Reportar"

@@ -1,6 +1,7 @@
 import { initI18n } from '@open-codesign/i18n';
 import type {
   ChatAppendInput,
+  ChatMessageRow,
   CommentCreateInput,
   CommentRow,
   CommentUpdateInput,
@@ -64,6 +65,8 @@ function resetStore() {
     iframeErrors: [],
     toasts: [],
     queuedCommentIds: [],
+    contextReview: null,
+    promptRestore: null,
   });
 }
 
@@ -274,6 +277,154 @@ describe('useCodesignStore prompt attachments', () => {
       attachments,
     });
     expect(useCodesignStore.getState().inputFiles).toEqual([]);
+  });
+});
+
+describe('CREATE evidence review gate', () => {
+  const analysisResponse = {
+    analysis: {
+      schemaVersion: 1 as const,
+      summary: 'A rural project with an explicit visual direction.',
+      variables: [
+        {
+          id: 'palette',
+          category: 'color',
+          label: 'Earth palette',
+          value: { primary: '#a7641a' },
+          detectedValue: { primary: '#a7641a' },
+          resolution: 'preserve' as const,
+          authority: 'confirmed' as const,
+          usage: 'approved' as const,
+          confidence: 'high' as const,
+          source: 'ai-analysis',
+          evidence: 'The project brief explicitly names the color.',
+          provenance: [{ materialId: 'prompt' }],
+        },
+      ],
+      conflicts: [],
+      gaps: [],
+    },
+    model: { provider: 'anthropic', modelId: 'claude-sonnet-4-6' },
+    usage: { inputTokens: 10, outputTokens: 5, costUsd: 0.001 },
+  };
+
+  function reviewHost(options?: { rows?: ChatMessageRow[]; persistError?: Error }) {
+    const calls: string[] = [];
+    const chat = {
+      ...mockChatApi(),
+      list: vi.fn(async (_designId: string): Promise<ChatMessageRow[]> => options?.rows ?? []),
+    };
+    const generate = vi.fn(async () => {
+      calls.push('generate');
+      return { artifacts: [{ content: '<html></html>' }], message: 'Done.' };
+    });
+    const analyze = vi.fn(async () => analysisResponse);
+    const initWorkspaceSources = vi.fn(async () => {
+      calls.push('persist');
+      if (options?.persistError) throw options.persistError;
+      return { sourcePaths: { prompt: '.codesign/sources/prompt.txt' } };
+    });
+    vi.stubGlobal('window', {
+      codesign: {
+        generate,
+        chat,
+        snapshots: mockSnapshotsApi(),
+        editMode: {
+          readContext: vi.fn(async () => null),
+          analyze,
+          initWorkspaceSources,
+        },
+      },
+    });
+    return { calls, generate, analyze, initWorkspaceSources };
+  }
+
+  it('analyzes the first prompt and stops before generation', async () => {
+    const host = reviewHost();
+    setWorkspaceBackedDesign();
+
+    await useCodesignStore.getState().sendPrompt({ prompt: 'Use #a7641a for a rural landing.' });
+
+    expect(host.analyze).toHaveBeenCalledOnce();
+    expect(host.generate).not.toHaveBeenCalled();
+    expect(useCodesignStore.getState().contextReview).toMatchObject({
+      status: 'review',
+      request: { prompt: 'Use #a7641a for a rural landing.' },
+    });
+  });
+
+  it('restores the prompt and preserves attachments when the user cancels', async () => {
+    reviewHost();
+    setWorkspaceBackedDesign();
+    const attachment = {
+      path: 'references/brief.md',
+      name: 'brief.md',
+      size: 42,
+    };
+    useCodesignStore.setState({ inputFiles: [attachment] });
+
+    await useCodesignStore.getState().sendPrompt({ prompt: 'Create the site.' });
+    useCodesignStore.getState().cancelContextReview();
+
+    expect(useCodesignStore.getState().contextReview).toBeNull();
+    expect(useCodesignStore.getState().promptRestore?.text).toBe('Create the site.');
+    expect(useCodesignStore.getState().inputFiles).toEqual([attachment]);
+  });
+
+  it('persists default preserve decisions before generation', async () => {
+    const host = reviewHost();
+    setWorkspaceBackedDesign();
+
+    await useCodesignStore.getState().sendPrompt({ prompt: 'Use #a7641a.' });
+    await useCodesignStore.getState().confirmContextReview();
+
+    expect(host.calls).toEqual(['persist', 'generate']);
+    expect(host.initWorkspaceSources).toHaveBeenCalledWith(
+      expect.objectContaining({
+        editContext: expect.objectContaining({
+          active: ['palette'],
+          detected: [expect.objectContaining({ id: 'palette', resolution: 'preserve' })],
+        }),
+      }),
+    );
+  });
+
+  it('does not generate when context persistence fails', async () => {
+    const host = reviewHost({ persistError: new Error('disk full') });
+    setWorkspaceBackedDesign();
+
+    await useCodesignStore.getState().sendPrompt({ prompt: 'Create the site.' });
+    await useCodesignStore.getState().confirmContextReview();
+
+    expect(host.generate).not.toHaveBeenCalled();
+    expect(useCodesignStore.getState().contextReview).toMatchObject({
+      status: 'error',
+      error: 'disk full',
+    });
+  });
+
+  it('does not intercept an ordinary follow-up turn', async () => {
+    const host = reviewHost({
+      rows: [
+        {
+          schemaVersion: 1,
+          id: 1,
+          designId: DEFAULT_DESIGN.id,
+          kind: 'assistant_text',
+          payload: { text: 'Initial design ready.' },
+          snapshotId: null,
+          createdAt: '2026-08-03T00:00:00.000Z',
+          seq: 1,
+        },
+      ],
+    });
+    setWorkspaceBackedDesign();
+
+    await useCodesignStore.getState().sendPrompt({ prompt: 'Make the second card wider.' });
+
+    expect(host.analyze).not.toHaveBeenCalled();
+    expect(host.generate).toHaveBeenCalledOnce();
+    expect(useCodesignStore.getState().contextReview).toBeNull();
   });
 });
 

@@ -25,6 +25,33 @@
     "title": "确认一下",
     "submit": "回答"
   },
+  "contextReview": {
+    "title": "审查设计说明",
+    "subtitle": "AI 从描述和参考资料中识别了这些设计决策。请在生成前确认。",
+    "promptSourceLabel": "项目说明",
+    "analyzing": "正在分析描述和参考资料…",
+    "saving": "正在保存决策…",
+    "confirm": "确认并生成",
+    "useDetected": "按识别结果使用",
+    "replace": "替换",
+    "leaveOpen": "留给 AI 提案",
+    "evidence": "证据",
+    "provenance": "来源",
+    "replacementFor": "{{label}} 的替换值",
+    "conflicts": "需要审查的冲突",
+    "openQuestions": "待定问题",
+    "noVariables": "未识别到明确的设计变量。可继续让 AI 提案。",
+    "notes": {
+      "promptTruncated": "项目说明已按分析限制截断。",
+      "tooManySources": "分析最多支持 20 个来源，部分参考资料已省略。",
+      "unsupportedFile": "无法将 {{name}} 作为支持的设计来源进行分析。",
+      "invalidUrl": "参考 URL 已省略：{{reason}}"
+    },
+    "errors": {
+      "analysisUnavailable": "请先配置提供商和模型。",
+      "persistUnavailable": "工作区上下文服务不可用，未进行生成。"
+    }
+  },
   "toast": {
     "error": {
       "report": "上报"

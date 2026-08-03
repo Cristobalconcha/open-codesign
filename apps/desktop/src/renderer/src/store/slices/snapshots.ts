@@ -1,4 +1,4 @@
-import type { ChatMessage } from '@open-codesign/shared';
+import type { ChatMessage, ChatMessageRow } from '@open-codesign/shared';
 import { rendererLogger } from '../../lib/renderer-logger.js';
 import type { CodesignState } from '../../store.js';
 import { autoNameFromPrompt, isDefaultDesignName } from '../lib/auto-name.js';
@@ -122,26 +122,39 @@ export async function persistArtifactSnapshot(
  * only snapshot-era user prompts get backfilled. Falls back to [] when designId
  * is null or IPC is unavailable (renderer tests).
  */
-export async function buildHistoryFromChat(designId: string | null): Promise<ChatMessage[]> {
+/**
+ * Canonical chat rows for a design, seeded from snapshots first so migrated
+ * v0.1 designs replay their history. Callers that need message *kinds* (the
+ * pre-generation gate) read these rows directly instead of the collapsed
+ * role/content history.
+ */
+export async function loadChatRows(designId: string | null): Promise<ChatMessageRow[]> {
   if (!designId || !window.codesign) return [];
   try {
     await window.codesign.chat.seedFromSnapshots(designId);
-    const rows = await window.codesign.chat.list(designId);
-    const out: ChatMessage[] = [];
-    for (const row of rows) {
-      if (row.kind === 'user') {
-        const text = (row.payload as { text?: string } | null)?.text;
-        if (typeof text === 'string' && text.length > 0) out.push({ role: 'user', content: text });
-      } else if (row.kind === 'assistant_text') {
-        const text = (row.payload as { text?: string } | null)?.text;
-        if (typeof text === 'string' && text.length > 0)
-          out.push({ role: 'assistant', content: text });
-      }
-    }
-    return out;
+    return await window.codesign.chat.list(designId);
   } catch {
     return [];
   }
+}
+
+export function chatRowsToHistory(rows: ChatMessageRow[]): ChatMessage[] {
+  const out: ChatMessage[] = [];
+  for (const row of rows) {
+    if (row.kind === 'user') {
+      const text = (row.payload as { text?: string } | null)?.text;
+      if (typeof text === 'string' && text.length > 0) out.push({ role: 'user', content: text });
+    } else if (row.kind === 'assistant_text') {
+      const text = (row.payload as { text?: string } | null)?.text;
+      if (typeof text === 'string' && text.length > 0)
+        out.push({ role: 'assistant', content: text });
+    }
+  }
+  return out;
+}
+
+export async function buildHistoryFromChat(designId: string | null): Promise<ChatMessage[]> {
+  return chatRowsToHistory(await loadChatRows(designId));
 }
 
 export async function persistDesignState(

@@ -724,6 +724,11 @@ const api = {
         schemaVersion: 2,
         ...input,
       }) as Promise<{ sourcePaths: Record<string, string> }>,
+    readContext: (designId: string) =>
+      ipcRenderer.invoke('codesign:edit-mode:v2:read-context', {
+        schemaVersion: 2,
+        designId,
+      }) as Promise<import('@open-codesign/core').EditContext | null>,
   },
   snapshots: {
     listDesigns: () =>

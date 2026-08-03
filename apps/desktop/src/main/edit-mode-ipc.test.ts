@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { EditContext } from '@open-codesign/core';
@@ -13,6 +13,7 @@ import {
   initEditModeWorkspaceSources,
   parseInput,
   parseSourcesInput,
+  readEditModeContext,
 } from './edit-mode-ipc';
 import { preparePromptContext } from './prompt-context';
 import { createDesign, initInMemoryDb, updateDesignWorkspace } from './snapshots-db';
@@ -126,6 +127,73 @@ describe('edit mode workspace initialization', () => {
     await expect(initEditModeWorkspace(db, input('missing'))).rejects.toMatchObject({
       code: 'IPC_NOT_FOUND',
     });
+  });
+});
+
+describe('shared CREATE context persistence', () => {
+  it('reuses an imported reference instead of copying it again', async () => {
+    const { db, design, workspace } = await fixture();
+    const importedPath = path.join(workspace, 'references', 'brief.md');
+    await mkdir(path.dirname(importedPath), { recursive: true });
+    await writeFile(importedPath, 'brand guide');
+    const sources: EditSource[] = [
+      { kind: 'text', id: 'prompt', label: 'Project brief', text: 'Build the landing.' },
+      {
+        kind: 'document',
+        id: 'source-1',
+        label: 'brief.md',
+        mediaType: 'text/markdown',
+        file: { path: importedPath, name: 'brief.md', size: 11 },
+        previewUrl: null,
+      },
+    ];
+    const built = buildEditContextV2(sources, [], {});
+    if (!built.ok) throw new Error(built.error);
+
+    const result = await initEditModeWorkspaceSources(
+      db,
+      parseSourcesInput({
+        schemaVersion: 2,
+        designId: design.id,
+        sources: toAnalysisSources(sources),
+        editContext: built.editContext,
+      }),
+    );
+
+    expect(result.sourcePaths['source-1']).toBe('references/brief.md');
+    expect(await readFile(importedPath, 'utf8')).toBe('brand guide');
+    await expect(readFile(path.join(workspace, 'references', 'brief-2.md'))).rejects.toMatchObject({
+      code: 'ENOENT',
+    });
+  });
+
+  it('reads only a valid persisted context for the review gate', async () => {
+    const { db, design, workspace } = await fixture();
+    expect(await readEditModeContext(db, design.id)).toBeNull();
+
+    const sources: EditSource[] = [
+      { kind: 'text', id: 'prompt', label: 'Project brief', text: 'Build the landing.' },
+    ];
+    const built = buildEditContextV2(sources, [], {});
+    if (!built.ok) throw new Error(built.error);
+    await initEditModeWorkspaceSources(
+      db,
+      parseSourcesInput({
+        schemaVersion: 2,
+        designId: design.id,
+        sources: toAnalysisSources(sources),
+        editContext: built.editContext,
+      }),
+    );
+
+    expect(await readEditModeContext(db, design.id)).toEqual(
+      expect.objectContaining({
+        schemaVersion: 2,
+        materials: [expect.objectContaining({ id: 'prompt' })],
+      }),
+    );
+    await writeFile(path.join(workspace, '.codesign', 'edit-context.json'), '{not-json');
+    expect(await readEditModeContext(db, design.id)).toBeNull();
   });
 });
 
@@ -273,8 +341,8 @@ describe('multisource edit workspace initialization', () => {
     ]);
     expect(saved.detected[0]).toMatchObject({
       resolution: 'replace',
-      authority: 'proposal',
-      usage: 'confirm-before-use',
+      authority: 'confirmed',
+      usage: 'approved',
       overrideValue: { family: 'Inter' },
     });
   });

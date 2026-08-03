@@ -4,6 +4,7 @@ import { CommentsPanel } from './components/comment/CommentsPanel';
 import { DeleteDesignDialog } from './components/DeleteDesignDialog';
 import { DesignsView } from './components/DesignsView';
 import { ReportEventDialog } from './components/diagnostics/ReportEventDialog';
+import { ContextReviewDialog } from './components/edit/ContextReviewDialog';
 import { NewDesignDialog } from './components/NewDesignDialog';
 import { PermissionDialog } from './components/PermissionDialog';
 import { RebindWorkspaceDialog } from './components/RebindWorkspaceDialog';
@@ -265,6 +266,7 @@ export function App() {
       <CommentsPanel />
       <PermissionDialog />
       <ReportEventDialog localId={activeReportLocalId} onClose={closeReportDialog} />
+      <ContextReviewDialog />
     </div>
   );
 }

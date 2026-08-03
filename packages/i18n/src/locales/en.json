@@ -25,6 +25,33 @@
     "title": "Quick clarification",
     "submit": "Answer"
   },
+  "contextReview": {
+    "title": "Review the design brief",
+    "subtitle": "The AI found these design decisions in your prompt and references. Confirm what to use before generation.",
+    "promptSourceLabel": "Project brief",
+    "analyzing": "Analyzing the prompt and references…",
+    "saving": "Saving decisions…",
+    "confirm": "Confirm and generate",
+    "useDetected": "Use as detected",
+    "replace": "Replace",
+    "leaveOpen": "Leave open for AI",
+    "evidence": "Evidence",
+    "provenance": "Provenance",
+    "replacementFor": "Replacement value for {{label}}",
+    "conflicts": "Conflicts to review",
+    "openQuestions": "Open questions",
+    "noVariables": "No explicit design variables were detected. Continue to let the AI propose them.",
+    "notes": {
+      "promptTruncated": "The project brief was truncated to the analysis limit.",
+      "tooManySources": "Some references were omitted because the analysis accepts at most 20 sources.",
+      "unsupportedFile": "{{name}} could not be analyzed as a supported design source.",
+      "invalidUrl": "The reference URL was omitted: {{reason}}"
+    },
+    "errors": {
+      "analysisUnavailable": "Configure a provider and model before analyzing the design brief.",
+      "persistUnavailable": "The workspace context service is unavailable. Nothing was generated."
+    }
+  },
   "toast": {
     "error": {
       "report": "Report"

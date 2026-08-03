@@ -101,6 +101,8 @@ export function Sidebar({ prefillPrompt }: SidebarProps) {
   const _sidebarCollapsed = useCodesignStore((s) => s.sidebarCollapsed);
   const _setSidebarCollapsed = useCodesignStore((s) => s.setSidebarCollapsed);
   const sendPrompt = useCodesignStore((s) => s.sendPrompt);
+  const promptRestore = useCodesignStore((s) => s.promptRestore);
+  const clearPromptRestore = useCodesignStore((s) => s.clearPromptRestore);
 
   const promptInputRef = useRef<PromptInputHandle>(null);
   const handlePickStarter = (starterPrompt: string): void => {
@@ -113,6 +115,13 @@ export function Sidebar({ prefillPrompt }: SidebarProps) {
     promptInputRef.current?.setPrompt(prefillPrompt.text);
     promptInputRef.current?.focus();
   }, [prefillPrompt]);
+
+  useEffect(() => {
+    if (promptRestore === null) return;
+    promptInputRef.current?.setPrompt(promptRestore.text);
+    promptInputRef.current?.focus();
+    clearPromptRestore();
+  }, [promptRestore, clearPromptRestore]);
 
   const handleSubmit = useCallback(
     (text: string): void => {

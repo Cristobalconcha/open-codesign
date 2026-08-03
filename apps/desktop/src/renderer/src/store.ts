@@ -29,6 +29,7 @@ import { recordAction } from './lib/action-timeline';
 import { tr, uniqueFiles } from './store/lib/locale';
 import { makeChatSlice } from './store/slices/chat';
 import { makeCommentsSlice } from './store/slices/comments';
+import { type ContextReviewState, makeContextReviewSlice } from './store/slices/context-review';
 import { makeDesignsSlice } from './store/slices/designs';
 import { makeDiagnosticsSlice } from './store/slices/diagnostics';
 import {
@@ -180,6 +181,8 @@ export interface CodesignState {
     attachments: LocalInputFile[];
     referenceUrl?: string | undefined;
   } | null;
+  contextReview: ContextReviewState | null;
+  promptRestore: { id: number; text: string } | null;
   selectedElement: SelectedElement | null;
   previewZoom: number;
   previewZoomMode: PreviewZoomMode;
@@ -268,7 +271,16 @@ export interface CodesignState {
      *  visible as a user message — the agent still receives it and responds
      *  normally, but the chat transcript reads as one continuous run. */
     silent?: boolean | undefined;
+    /** Internal bypass used only after a reviewed context was persisted. */
+    contextReviewed?: boolean | undefined;
   }) => Promise<void>;
+  openContextReview: (review: ContextReviewState) => Promise<void>;
+  setContextReviewResolution: (id: string, resolution: 'preserve' | 'replace' | 'open') => void;
+  setContextReviewOverride: (id: string, override: string) => void;
+  retryContextReview: () => Promise<void>;
+  confirmContextReview: () => Promise<void>;
+  cancelContextReview: () => void;
+  clearPromptRestore: () => void;
   syncGenerationStatus: () => Promise<void>;
   markGenerationRunning: (designId: string, generationId: string, stage?: GenerationStage) => void;
   /** Feature flag for the auto-polish second-loop injection. When true,
@@ -527,6 +539,8 @@ export const useCodesignStore = create<CodesignState>((set, get) => ({
   inputFiles: [],
   referenceUrl: '',
   lastPromptInput: null,
+  contextReview: null,
+  promptRestore: null,
   selectedElement: null,
   previewZoom: 100,
   previewZoomMode: 'fit' as PreviewZoomMode,
@@ -558,10 +572,15 @@ export const useCodesignStore = create<CodesignState>((set, get) => ({
   ...makeDesignsSlice(set, get),
   ...makeChatSlice(set, get),
   ...makeCommentsSlice(set, get),
+  ...makeContextReviewSlice(set, get),
 
   // ---- inline simple actions ----
   clearIframeErrors() {
     set({ iframeErrors: [] });
+  },
+
+  clearPromptRestore() {
+    set({ promptRestore: null });
   },
 
   pushIframeError(message) {

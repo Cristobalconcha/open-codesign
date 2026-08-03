@@ -246,8 +246,8 @@ describe('EditTab multisource flow', () => {
         expect.objectContaining({
           id: 'accent-color',
           resolution: 'replace',
-          authority: 'proposal',
-          usage: 'confirm-before-use',
+          authority: 'confirmed',
+          usage: 'approved',
           value: { hex: '#7a8b3f' },
           overrideValue: { hex: '#123456' },
         }),

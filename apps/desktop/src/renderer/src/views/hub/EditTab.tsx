@@ -3,6 +3,12 @@ import type { LocalInputFile } from '@open-codesign/shared';
 import { FileText, FolderOpen, Globe, Trash2, Upload } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  type ContextReviewCopy,
+  ContextReviewList,
+  DEFAULT_AUTHORITY_HINTS,
+  DEFAULT_USAGE_HINTS,
+} from '../../components/edit/ContextReviewList';
+import {
   buildEditContextV2,
   classifyEditSourceFile,
   type EditDecision,
@@ -25,19 +31,16 @@ interface AnalysisView {
   gaps: Array<{ category: string; label: string; reason: string }>;
 }
 
-const AUTHORITY_HINT: Record<string, string> = {
-  confirmed: 'Explicit decision',
-  proposal: 'Pending confirmation — do not treat as decided',
-  inferred: 'Interpreted from evidence',
-  fact: 'Project fact, not a design instruction',
-  restriction: 'Legal / editorial guard',
-  unknown: 'Authority could not be established',
-};
-
-const USAGE_HINT: Record<string, string> = {
-  approved: 'Approved for use',
-  'confirm-before-use': 'Confirm before using',
-  private: 'Private — never publishable',
+const REVIEW_COPY: ContextReviewCopy = {
+  preserve: 'preserve',
+  replace: 'replace',
+  open: 'open',
+  evidence: 'Evidence',
+  provenance: 'Provenance',
+  replacementPlaceholder: '{"family":"Inter"}',
+  replacementAriaLabel: (label) => `Replacement value for ${label}`,
+  authorityHint: DEFAULT_AUTHORITY_HINTS,
+  usageHint: DEFAULT_USAGE_HINTS,
 };
 
 export function EditTab() {
@@ -482,91 +485,14 @@ export function EditTab() {
             Detected variables ({detected.length})
           </h3>
 
-          {detected.map((definition) => {
-            const decision = decisions[definition.id]?.resolution ?? 'preserve';
-            return (
-              <div
-                key={definition.id}
-                className="border border-[var(--color-border)] rounded-[var(--radius-md)] p-3 space-y-2"
-              >
-                <div className="flex items-baseline gap-2 flex-wrap">
-                  <span className="text-[var(--text-sm)] font-medium text-[var(--color-text-primary)]">
-                    {definition.label}
-                  </span>
-                  <span className="text-[var(--text-xs)] text-[var(--color-text-muted)] capitalize">
-                    {definition.category}
-                  </span>
-                  <span
-                    title={AUTHORITY_HINT[definition.authority ?? 'unknown']}
-                    className="text-[var(--text-xs)] px-1.5 py-0.5 rounded bg-[var(--color-surface)] text-[var(--color-text-secondary)]"
-                  >
-                    {definition.authority ?? 'unknown'}
-                  </span>
-                  <span
-                    title={USAGE_HINT[definition.usage ?? 'approved']}
-                    className="text-[var(--text-xs)] px-1.5 py-0.5 rounded bg-[var(--color-surface)] text-[var(--color-text-secondary)]"
-                  >
-                    {definition.usage ?? 'approved'}
-                  </span>
-                  <span className="text-[var(--text-xs)] px-1.5 py-0.5 rounded bg-[var(--color-surface)] text-[var(--color-text-secondary)]">
-                    {definition.confidence}
-                  </span>
-                </div>
-
-                <pre className="text-[var(--text-xs)] text-[var(--color-text-secondary)] whitespace-pre-wrap break-words">
-                  {JSON.stringify(definition.value)}
-                </pre>
-
-                {definition.evidence !== undefined && (
-                  <p className="text-[var(--text-xs)] text-[var(--color-text-muted)]">
-                    Evidence: {definition.evidence}
-                  </p>
-                )}
-                {definition.provenance !== undefined && (
-                  <p className="text-[var(--text-xs)] text-[var(--color-text-muted)]">
-                    Provenance:{' '}
-                    {definition.provenance
-                      .map((item) =>
-                        item.locator === undefined
-                          ? item.materialId
-                          : `${item.materialId} (${item.locator})`,
-                      )
-                      .join(', ')}
-                  </p>
-                )}
-
-                <div className="flex gap-4 flex-wrap">
-                  {(['preserve', 'replace', 'open'] as const).map((option) => (
-                    <label
-                      key={option}
-                      className="flex items-center gap-1.5 text-[var(--text-xs)] text-[var(--color-text-secondary)] cursor-pointer"
-                    >
-                      <input
-                        type="radio"
-                        name={`resolution-${definition.id}`}
-                        value={option}
-                        checked={decision === option}
-                        onChange={() => setResolution(definition.id, option)}
-                        disabled={busy}
-                      />
-                      {option}
-                    </label>
-                  ))}
-                </div>
-
-                {decision === 'replace' && (
-                  <textarea
-                    aria-label={`Replacement value for ${definition.label}`}
-                    value={decisions[definition.id]?.override ?? ''}
-                    onChange={(e) => setOverride(definition.id, e.target.value)}
-                    rows={2}
-                    placeholder='{"family":"Inter"}'
-                    className="w-full px-3 py-2 text-[var(--text-xs)] font-mono rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-primary)]"
-                  />
-                )}
-              </div>
-            );
-          })}
+          <ContextReviewList
+            detected={detected}
+            decisions={decisions}
+            onResolution={setResolution}
+            onOverride={setOverride}
+            disabled={busy}
+            copy={REVIEW_COPY}
+          />
 
           {analysis.conflicts.length > 0 && (
             <div className="border border-[var(--color-border)] rounded-[var(--radius-md)] p-3">

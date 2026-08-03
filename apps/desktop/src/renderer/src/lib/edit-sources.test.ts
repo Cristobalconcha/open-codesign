@@ -130,15 +130,18 @@ describe('buildEditContextV2', () => {
     );
   });
 
-  it('treats an untouched finding as preserved and keeps authority and usage', () => {
+  it('records final checklist confirmation while preserving private usage', () => {
     const built = buildEditContextV2(sources, [definition({})], {});
     if (!built.ok) throw new Error(built.error);
     expect(built.editContext.active).toEqual(['hero-typeface']);
     expect(built.editContext.open).toEqual([]);
     expect(built.editContext.detected[0]).toMatchObject({
       resolution: 'preserve',
-      authority: 'proposal',
+      authority: 'confirmed',
       usage: 'private',
+    });
+    expect(built.editContext.detected[0]?.provenance?.at(-1)).toMatchObject({
+      materialId: 'user',
     });
     expect(built.editContext.detected[0]).not.toHaveProperty('overrideValue');
   });
@@ -160,7 +163,7 @@ describe('buildEditContextV2', () => {
       resolution: 'replace',
       value: { family: 'Lora' },
       overrideValue: { primary: '#123456' },
-      authority: 'proposal',
+      authority: 'confirmed',
       usage: 'private',
     });
     expect(palette?.provenance?.at(-1)).toMatchObject({ materialId: 'user' });

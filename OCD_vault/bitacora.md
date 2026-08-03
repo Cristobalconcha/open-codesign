@@ -411,3 +411,22 @@ No registrar secretos, tokens, claves, contenido sensible de configuración ni d
 - No se requiere recargar el HTML: la migración opera sobre el documento Canvas ya persistido y luego entra en el autoguardado normal.
 - Verificaciones: 225 comprobaciones estáticas y runtime completo con `brandVectorApplied: true`, ausencia de máscaras, inspector en `top: 0`, persistencia, publicación, video y audio correctos.
 - Checkpoint WordPress `f2d9b8e feat(canvas): promote SVG logos to native Brand vectors`; versión `0.1.12-dev` desplegada por FTPS con 22 archivos verificados. El primer intento agotó el tiempo después de transferir los archivos; una segunda ejecución cerró formalmente con `DEPLOY_OK`.
+
+## 2026-08-03 — Brand conserva el tamaño del SVG convertido
+
+- La prueba humana mostró que sustituir `<img>` por un SVG inline eliminaba la regla de tamaño que dependía del selector de la imagen; el logotipo convertido podía quedar en `0 × 0 px` y exigía una corrección manual difícil.
+- Antes de reemplazar el nodo, el conversor ahora captura el rectángulo y los estilos computados del `<img>` y transfiere ancho, alto y `display` al SVG nativo. La conversión conserva así la geometría visible aunque el CSS original estuviera dirigido al elemento imagen.
+- El fixture de navegador incorpora un logo externo de `100 × 40 px` y exige que el vector Brand conserve esas dimensiones después de la conversión.
+- Verificaciones WordPress: 13 PHP, tres fixtures/7 páginas, 225 comprobaciones estáticas y runtime completo con `brandVectorSizePreserved: true`.
+- Checkpoint WordPress `e3185e7 fix(canvas): preserve SVG dimensions during Brand conversion`; versión `0.1.13-dev` desplegada y verificada por FTPS con 22 archivos.
+
+## 2026-08-03 — Checklist de IA compartido por Crear y Editar
+
+- Se integró el analizador multifuente del Modo Editar con el primer envío del flujo normal de Crear. El descriptor escrito por el usuario siempre entra como evidencia; archivos importados y URL HTTPS se suman como fuentes opcionales.
+- Antes de la primera generación, la aplicación consulta el historial real y un `.codesign/edit-context.json` válido. Sólo los diseños nuevos sin contexto ni entrega previa abren el checklist; los turnos posteriores del chat conservan el envío inmediato.
+- La revisión muestra valor detectado, confianza, autoridad, uso, evidencia y procedencia. El usuario puede usar lo detectado, reemplazarlo mediante JSON estructurado o dejarlo abierto para propuesta de la IA. Al confirmar el checklist, las propuestas aceptadas quedan registradas como decisiones confirmadas; los materiales privados mantienen su protección.
+- Confirmar persiste primero el contexto schema v2 y sus fuentes mediante el IPC atómico, y sólo después invoca la generación. Los adjuntos que ya están en `references/` o `assets/` se reutilizan sin duplicarlos. Un fallo de análisis o disco impide generar; cancelar devuelve el descriptor al compositor y conserva los adjuntos.
+- Se extrajo un listado de revisión reutilizable por la pestaña Editar y el nuevo diálogo Crear. La interfaz fue traducida en inglés, español, portugués y chino.
+- Claude Code CLI con Opus y esfuerzo alto realizó la auditoría y dejó una extracción parcial; alcanzó su límite de sesión antes de conectar el flujo. Codex completó la integración, corrigió rutas relativas, estados, persistencia, pruebas y la semántica de confirmación.
+- Verificaciones: typecheck Desktop e i18n correctos; 199 pruebas Desktop y 15 pruebas i18n; build de producción y `git diff --check` correctos.
+- Pendiente de prueba humana: ejecutar el análisis con el proveedor configurado en la instalación real y evaluar calidad/latencia del checklist. La selección de un modelo con visión según capacidades todavía no está automatizada; se usa el proveedor y modelo activo sin claves ni modelos hardcodeados.

@@ -19,6 +19,7 @@ import {
 import type { CodesignState } from '../../store.js';
 import { modelRef, newId, normalizeReferenceUrl, tr, uniqueFiles } from '../lib/locale.js';
 import { isReadyConfig } from '../lib/ready-config.js';
+import { evaluateContextReview } from './context-review.js';
 import {
   buildGenerateDisplayMessage,
   buildGenerateErrorDescription,
@@ -31,6 +32,7 @@ import {
 import {
   artifactFromResult,
   buildHistoryFromChat,
+  loadChatRows,
   persistDesignState,
   recordPreviewSourceInPool,
   triggerAutoRenameIfFirst,
@@ -788,6 +790,23 @@ export function makeGenerationSlice(set: SetState, get: GetState): GenerationSli
           title: msg,
         });
         return;
+      }
+      if (
+        !input.silent &&
+        input.contextReviewed !== true &&
+        window.codesign.editMode?.readContext !== undefined
+      ) {
+        const chatRows = await loadChatRows(designIdAtStart);
+        const review = await evaluateContextReview(
+          designIdAtStart,
+          request,
+          chatRows.map((row) => row.kind),
+          activeDesign.workspacePath,
+        );
+        if (review !== null) {
+          await get().openContextReview(review);
+          return;
+        }
       }
       if (typeof window.codesign.generationStatus === 'function') {
         try {

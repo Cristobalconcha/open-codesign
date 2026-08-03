@@ -14,6 +14,8 @@ import { resolveSafeWorkspaceChildPath } from './workspace-reader';
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_SOURCE_BYTES = 20 * 1024 * 1024;
 const MAX_TOTAL_SOURCE_BYTES = 50 * 1024 * 1024;
+/** Directories `codesign:files:v1:import-to-workspace` writes into. */
+const IMPORTED_SOURCE_DIRS = ['references', 'assets'] as const;
 const ALLOWED_EXTENSIONS = new Map([
   ['image/png', new Set(['.png'])],
   ['image/jpeg', new Set(['.jpg', '.jpeg'])],
@@ -40,6 +42,41 @@ export function registerEditModeIpc(db: Database): void {
   ipcMain.handle('codesign:edit-mode:v2:init-workspace', async (_event, raw: unknown) => {
     return initEditModeWorkspaceSources(db, parseSourcesInput(raw));
   });
+  ipcMain.handle('codesign:edit-mode:v2:read-context', async (_event, raw: unknown) => {
+    return readEditModeContext(db, parseReadContextInput(raw));
+  });
+}
+
+export function parseReadContextInput(raw: unknown): string {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) badInput('Invalid input');
+  const value = raw as Record<string, unknown>;
+  if (value['schemaVersion'] !== 2) badInput('schemaVersion must be 2');
+  if (typeof value['designId'] !== 'string' || value['designId'].trim().length === 0)
+    badInput('designId is required');
+  return value['designId'];
+}
+
+/**
+ * Read the persisted edit context for a design. A missing, unreadable, or
+ * schema-invalid file reads as "no context" so callers gate on a context they
+ * can actually trust.
+ */
+export async function readEditModeContext(
+  db: Database,
+  designId: string,
+): Promise<EditContext | null> {
+  const design = getDesign(db, designId);
+  if (design === null || design.workspacePath === null) return null;
+  try {
+    const contextPath = await resolveSafeWorkspaceChildPath(
+      design.workspacePath,
+      '.codesign/edit-context.json',
+    );
+    const raw = await readFile(contextPath, 'utf8');
+    return parseEditContext(JSON.parse(raw) as unknown);
+  } catch {
+    return null;
+  }
 }
 
 export interface EditModeSourcesInitInput {
@@ -250,6 +287,38 @@ async function sourceBytes(source: EditSourceInput): Promise<Buffer> {
   return readFile(source.file.path);
 }
 
+/**
+ * A file the user already imported into `references/` or `assets/` is recorded
+ * in place instead of being copied a second time. Anything outside those
+ * directories — including workspace-root files — is still copied, so the
+ * context always points at a stable, workspace-relative source record.
+ */
+async function reuseImportedSourcePath(
+  workspaceRoot: string,
+  source: Extract<EditSourceInput, { file: unknown }>,
+): Promise<{ relativePath: string; size: number } | null> {
+  const absoluteRoot = path.resolve(workspaceRoot);
+  const absoluteFile = path.resolve(source.file.path);
+  const relative = path.relative(absoluteRoot, absoluteFile);
+  if (relative.length === 0 || relative.startsWith('..') || path.isAbsolute(relative)) return null;
+  const relativePath = relative.split(path.sep).join('/');
+  if (!IMPORTED_SOURCE_DIRS.some((dir) => relativePath.startsWith(`${dir}/`))) return null;
+
+  const resolved = await resolveSafeWorkspaceChildPath(workspaceRoot, relativePath);
+  if (path.resolve(resolved) !== absoluteFile) return null;
+  const metadata = await stat(absoluteFile);
+  if (!metadata.isFile()) badInput(`Source "${source.label}" is not a regular file`);
+  if (metadata.size !== source.file.size)
+    badInput(`Source "${source.label}" changed after selection`);
+  if (metadata.size > MAX_SOURCE_BYTES) {
+    throw new CodesignError(
+      `Source "${source.label}" exceeds the 20 MB limit`,
+      ERROR_CODES.ATTACHMENT_TOO_LARGE,
+    );
+  }
+  return { relativePath, size: metadata.size };
+}
+
 export async function initEditModeWorkspaceSources(
   db: Database,
   input: EditModeSourcesInitInput,
@@ -272,6 +341,20 @@ export async function initEditModeWorkspaceSources(
   let totalBytes = 0;
   try {
     for (const source of input.sources) {
+      if (source.kind !== 'text' && source.kind !== 'url') {
+        const reused = await reuseImportedSourcePath(workspaceRoot, source);
+        if (reused !== null) {
+          totalBytes += reused.size;
+          if (totalBytes > MAX_TOTAL_SOURCE_BYTES) {
+            throw new CodesignError(
+              'Combined edit sources exceed the 50 MB limit',
+              ERROR_CODES.ATTACHMENT_TOO_LARGE,
+            );
+          }
+          sourcePaths[source.id] = reused.relativePath;
+          continue;
+        }
+      }
       const bytes = await sourceBytes(source);
       totalBytes += bytes.length;
       if (totalBytes > MAX_TOTAL_SOURCE_BYTES) {

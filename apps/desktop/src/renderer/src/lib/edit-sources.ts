@@ -188,7 +188,19 @@ export function buildEditContextV2(
     }
     active.push(definition.id);
     if (decision.resolution === 'preserve') {
-      resolved.push({ ...definition, resolution: 'preserve' });
+      resolved.push({
+        ...definition,
+        resolution: 'preserve',
+        authority:
+          definition.authority === 'proposal' || definition.authority === 'unknown'
+            ? 'confirmed'
+            : definition.authority,
+        usage: definition.usage === 'confirm-before-use' ? 'approved' : definition.usage,
+        provenance: [
+          ...(definition.provenance ?? []),
+          { materialId: 'user', excerpt: 'Confirmed in the design decision checklist' },
+        ],
+      });
       continue;
     }
     const replacement = parseReplacementValue(decision.override);
@@ -199,6 +211,11 @@ export function buildEditContextV2(
       ...definition,
       resolution: 'replace',
       overrideValue: replacement.value,
+      authority:
+        definition.authority === 'proposal' || definition.authority === 'unknown'
+          ? 'confirmed'
+          : definition.authority,
+      usage: definition.usage === 'confirm-before-use' ? 'approved' : definition.usage,
       provenance: [
         ...(definition.provenance ?? []),
         { materialId: 'user', excerpt: 'Replacement value supplied by the user' },
