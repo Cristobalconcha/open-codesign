@@ -372,3 +372,12 @@ No registrar secretos, tokens, claves, contenido sensible de configuración ni d
 - El saneador ahora bloquea `behavior:` sólo cuando es el nombre completo de una declaración CSS, delimitada por el inicio, `{` o `;`; las propiedades con prefijo permanecen admitidas.
 - Verificaciones: 13 PHP, tres fixtures/7 páginas, 221 comprobaciones estáticas, runtime de navegador completo y `git diff --check` correctos.
 - Checkpoint WordPress `ac090f7 fix(canvas): allow modern behavior CSS properties`; versión `0.1.6-dev` desplegada por FTPS con 22 archivos verificados.
+
+## 2026-08-03 — Header bajo WordPress y video de fondo bloqueado
+
+- La primera página Canvas real quedó publicada como `pagina-open-codesign-canvas` (ID 23). La inspección remota confirmó que `.nav` usa `position: fixed; top: 0`, por lo que una sesión autenticada la ubicaba debajo de la barra administrativa.
+- El runtime público ahora mide `#wpadminbar` y compensa únicamente los elementos fijos del Canvas cuyo `top` efectivo es cero. La prueba de navegador confirma `publicHeaderTop: 32px`; el valor se recalcula al cambiar el tamaño para admitir la barra móvil.
+- El video final `Simular-drone.mp4` responde HTTP 200 como `video/mp4`, pero el HTML había perdido `muted`; el navegador bloqueaba su `autoplay`. El runtime aplica `muted`, `defaultMuted`, `playsinline` y solicita `play()` de forma segura. La serialización futura conserva además esos atributos en todo `video[autoplay]`.
+- Verificaciones: 222 comprobaciones estáticas, runtime completo con `publicVideoMuted: true`, compensación de header, estructura, estilos, autoguardado y publicación; `git diff --check` correcto.
+- Checkpoint WordPress `5e5a36a fix(canvas): offset admin header and start background video`.
+- El primer despliegue `0.1.7-dev` sufrió un corte transitorio FTPS y no se aceptó como completo. El reintento transfirió y verificó los 22 archivos (`DEPLOY_OK`). La página pública sirve `ocd-canvas-public.js?ver=0.1.7-dev` con ambas correcciones.
