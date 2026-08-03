@@ -56,8 +56,37 @@ describe('parseEditmodeBlock', () => {
 });
 
 describe('ensureEditmodeMarkers', () => {
-  it('returns source unchanged when markers already present', () => {
+  it('repairs a standalone marker block into a TWEAK_DEFAULTS declaration', () => {
     const src = `/*EDITMODE-BEGIN*/{"a":1}/*EDITMODE-END*/`;
+    expect(ensureEditmodeMarkers(src)).toBe(
+      `const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{"a":1}/*EDITMODE-END*/;`,
+    );
+  });
+
+  it('repairs a multiline standalone marker without duplicating its semicolon', () => {
+    const src = `const { useState } = React;
+
+/*EDITMODE-BEGIN*/{
+  "accentColor": "#a7641a"
+}/*EDITMODE-END*/;
+
+function App() { return <main />; }`;
+    const out = ensureEditmodeMarkers(src);
+    expect(out).toContain(
+      `const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "accentColor": "#a7641a"
+}/*EDITMODE-END*/;`,
+    );
+    expect(out).not.toContain('/*EDITMODE-END*/;;');
+  });
+
+  it('leaves an existing declaration unchanged', () => {
+    const src = `const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{"a":1}/*EDITMODE-END*/;`;
+    expect(ensureEditmodeMarkers(src)).toBe(src);
+  });
+
+  it('leaves a marker used by another expression unchanged', () => {
+    const src = `const T = /*EDITMODE-BEGIN*/{"a":1}/*EDITMODE-END*/;`;
     expect(ensureEditmodeMarkers(src)).toBe(src);
   });
 

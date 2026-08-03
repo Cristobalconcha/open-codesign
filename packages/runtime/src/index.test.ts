@@ -236,6 +236,20 @@ describe('buildStandaloneDocument', () => {
     expect(out.indexOf('applyInitial')).toBeLessThan(out.lastIndexOf('Babel.transform'));
   });
 
+  it('repairs an orphaned EDITMODE block before exporting standalone JSX', () => {
+    const out = buildStandaloneDocument(
+      '/*EDITMODE-BEGIN*/{"accentColor":"red"}/*EDITMODE-END*/\nfunction App() { return <main>hi</main>; }',
+      { path: 'App.jsx' },
+    );
+
+    expect(out).toContain(
+      'const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{\\"accentColor\\":\\"red\\"}/*EDITMODE-END*/;',
+    );
+    expect(out).not.toContain(
+      'source = "/*EDITMODE-BEGIN*/{\\"accentColor\\":\\"red\\"}/*EDITMODE-END*/',
+    );
+  });
+
   it('exports mixed HTML without external React/Babel CDN scripts or preview overlay', () => {
     const out = buildStandaloneDocument(
       [

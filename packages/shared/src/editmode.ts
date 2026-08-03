@@ -200,12 +200,28 @@ export function normalizeLegacyEditmodeBlock(source: string): string | null {
   return replaceMarkerBlock(source, 'EDITMODE', JSON.stringify(tokens, null, 2));
 }
 
-/**
- * Kept for older runtime call sites. v0.2 no longer repairs missing EDITMODE
- * markers; the agent must emit the canonical protocol itself.
- */
 export function ensureEditmodeMarkers(source: string): string {
-  return source;
+  const block = findMarkerBlock(source, 'EDITMODE');
+  if (block === null) return source;
+
+  // A malformed artifact can contain a valid marker JSON block as a bare
+  // statement after an agent edit. The live preview used to hide this defect
+  // by replacing the marker with the tweak bridge expression, while a
+  // standalone export fed the original invalid JSX to Babel. Repair only the
+  // unambiguous standalone-line form; declarations and expression contexts
+  // remain untouched.
+  const lineStart = source.lastIndexOf('\n', block.start - 1) + 1;
+  const nextNewline = source.indexOf('\n', block.end);
+  const lineEnd = nextNewline < 0 ? source.length : nextNewline;
+  const before = source.slice(lineStart, block.start);
+  const after = source.slice(block.end, lineEnd);
+  if (before.trim().length !== 0 || !/^\s*;?\s*$/u.test(after)) return source;
+
+  const hasSemicolon = after.includes(';');
+  return `${source.slice(0, block.start)}const TWEAK_DEFAULTS = ${source.slice(
+    block.start,
+    block.end,
+  )}${hasSemicolon ? '' : ';'}${source.slice(block.end)}`;
 }
 
 // ---------------------------------------------------------------------------
