@@ -365,3 +365,10 @@ No registrar secretos, tokens, claves, contenido sensible de configuración ni d
 - La prueba de navegador reproduce metadatos dentro de `<body>`, exige `headTagsStripped: true` y confirma que la importación autoguardada avanza a revisión 3. Las 221 comprobaciones estáticas, runtime completo y `git diff --check` aprobaron.
 - Checkpoints WordPress: `46f714b fix(canvas): strip misplaced document metadata` y `72026b3 fix(canvas): autosave imported and edited content`.
 - Despliegue verificado: 22 archivos, versión remota `0.1.5-dev`; el JavaScript servido contiene saneamiento explícito y autoguardado.
+
+## 2026-08-03 — Falso positivo en propiedades CSS `*-behavior`
+
+- El siguiente intento remoto fue rechazado con `El CSS no admite behavior:`. La causa era una búsqueda por subcadena que confundía la propiedad heredada y peligrosa `behavior:` con propiedades modernas legítimas como `scroll-behavior` y `transition-behavior` presentes en el diseño.
+- El saneador ahora bloquea `behavior:` sólo cuando es el nombre completo de una declaración CSS, delimitada por el inicio, `{` o `;`; las propiedades con prefijo permanecen admitidas.
+- Verificaciones: 13 PHP, tres fixtures/7 páginas, 221 comprobaciones estáticas, runtime de navegador completo y `git diff --check` correctos.
+- Checkpoint WordPress `ac090f7 fix(canvas): allow modern behavior CSS properties`; versión `0.1.6-dev` desplegada por FTPS con 22 archivos verificados.
