@@ -356,3 +356,12 @@ No registrar secretos, tokens, claves, contenido sensible de configuración ni d
 - La prueba de navegador incorpora deliberadamente `<base>` y `<meta>` y exige su eliminación. Verificaciones finales: 13 PHP parseados, tres fixtures/7 páginas, 221 comprobaciones estáticas, runtime con `headTagsStripped: true`, revisión 2, estilos, grid, conducta, video y permalink simulados; `git diff --check` correcto.
 - Checkpoints WordPress: `b553b07 fix(canvas): publish saved page atomically` y `7d3ae3c fix(canvas): publish body markup only`.
 - Se desplegaron y verificaron por FTPS los 22 archivos del plugin. La versión remota `0.1.3-dev` contiene tanto la publicación atómica como el serializador de cuerpo; falta repetir un único clic autenticado para comprobar el permalink real.
+
+## 2026-08-03 — Metadatos desplazados y autoguardado Canvas
+
+- El primer reintento remoto con la versión nueva mostró que GrapesJS había conservado `<base>` y `<meta>` dentro de su propio `<body>`; extraer `body.innerHTML` no bastaba. Se eliminaron explícitamente `base`, `meta`, `link` y `title` en el cliente y se añadió la misma normalización defensiva en el servidor antes del saneamiento.
+- La defensa del servidor permite que una pestaña ya abierta publique sin depender de actualizar el JavaScript. No se habilitaron metadatos de cabecera como contenido de página.
+- Cristóbal detectó además que actualizar el editor borraba una importación todavía no guardada. La carga HTML/CSS ahora crea inmediatamente una revisión persistida y los cambios posteriores se autoguardan con un debounce de 1,2 segundos; el botón Guardar permanece como checkpoint manual explícito.
+- La prueba de navegador reproduce metadatos dentro de `<body>`, exige `headTagsStripped: true` y confirma que la importación autoguardada avanza a revisión 3. Las 221 comprobaciones estáticas, runtime completo y `git diff --check` aprobaron.
+- Checkpoints WordPress: `46f714b fix(canvas): strip misplaced document metadata` y `72026b3 fix(canvas): autosave imported and edited content`.
+- Despliegue verificado: 22 archivos, versión remota `0.1.5-dev`; el JavaScript servido contiene saneamiento explícito y autoguardado.
