@@ -334,3 +334,15 @@ No registrar secretos, tokens, claves, contenido sensible de configuración ni d
 - Se conserva la distinción de identidad: el prototipo del editor es Santa Cecilia; la instalación y el caso web publicado son Santa Luisa de Palpi. El flujo multifuente de Crear/Editar en Desktop continúa suspendido hasta cerrar este frente web.
 - El hook global del repositorio Desktop no aprobó el commit documental por cambios pendientes ajenos a este frente: errores previos en `scripts/stage2-register.mjs`, `scripts/stage2-edittab.mjs` y formato de `apps/desktop/src/main/edit-mode-ipc.ts`. No se modificaron ni ocultaron esos archivos; el contenido del registro fue verificado con `git diff --cached --check` y se mantuvo acotado a esta bitácora.
 - Se intentó el push reglamentario de `feature/edit-mode`. El typecheck completo aprobó, pero el pre-push se detuvo en el mismo lint global ajeno al frente; no se omitió el hook y la rama permanece ocho commits por delante de `origin/feature/edit-mode`.
+
+## 2026-08-03 — Activos, video y publicación del Canvas
+
+- La primera prueba humana remota confirmó tres límites: las rutas `file://` no cargaban imágenes, el video era reinterpretado con controles y `Guardar` persistía sólo el documento privado sin crear una página pública.
+- Se registró `ocd-video` antes de importar componentes. La prueba de navegador confirma tipo propio y ausencia de controles agregados.
+- Se añadió un resolver seguro que toma referencias `file://` o `assets/`, normaliza el nombre y busca coincidencias únicamente dentro de `wp-content/uploads/open-codesign`, con límites de 100 referencias y 2.000 archivos inspeccionados. El caso Santa Luisa reutiliza los siete activos previamente cargados.
+- Se subió y verificó `Logo.svg` en el árbol administrado: HTTP 200 y 17.934 bytes. `familia.mov` no se publicó porque pesa 189.551.588 bytes; requiere optimización/transcodificación antes de usarse responsablemente en web.
+- Se añadió `Publicar/actualizar página`: guarda primero el Canvas, crea o actualiza una página WordPress mediante la identidad estable `_ocd_canvas_document_id`, usa una plantilla standalone y entrega un enlace `Ver página`.
+- La serialización elimina el wrapper `<body>` antes de guardar para evitar HTML anidado al renderizar mediante shortcode. El runtime público conserva `scroll-threshold`.
+- Verificaciones: 13 archivos PHP parseados, tres fixtures/7 páginas, 221 comprobaciones estáticas y runtime completo con video propio, resolución de activo, revisión 2 y URL publicada simulada; `git diff --check` correcto.
+- Checkpoints WordPress: `45171dc feat(canvas): resolve assets and publish pages` y `b5f6dde chore(plugin): bump Canvas asset version`.
+- Despliegue: 22 archivos transferidos y verificados; versión de assets `0.1.1-dev` para invalidar caché. Home, JavaScript del editor y logo respondieron HTTP 200. Falta únicamente que Cristóbal ejecute el primer `Publicar/actualizar página` con su sesión autenticada para validar el permalink real.
