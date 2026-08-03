@@ -393,3 +393,11 @@ No registrar secretos, tokens, claves, contenido sensible de configuración ni d
 - Verificaciones: 13 PHP, tres fixtures/7 páginas, 225 comprobaciones estáticas y runtime completo con estilos computados, SVG adaptable, pestañas laterales, video silenciado al inicio y audio habilitado tras interacción.
 - Checkpoints WordPress: `54a18ef feat(canvas): add adaptive SVG color controls`, `5d8d427 feat(canvas): merge side panels behind tabs` y `6f678db feat(canvas): let visitors enable background audio`.
 - Despliegue verificado por FTPS: 22 archivos, versión remota `0.1.10-dev`. La página pública respondió HTTP 200 y confirmó tanto la versión como el control de sonido en el JavaScript servido.
+
+## 2026-08-03 — Inspector SVG visible y eliminación de franja fantasma
+
+- La prueba humana detectó que el control de color sólo aparecía al seleccionar exactamente el nodo `<img>` del logo. El inspector ahora localiza una imagen SVG externa dentro del elemento seleccionado, de modo que también funciona al seleccionar el contenedor del logotipo o un contenedor inmediato.
+- El panel identifica explícitamente `Logotipo SVG detectado` y conserva los colores claro/oscuro y la aplicación reutilizable.
+- El recuadro vacío que desplazaba el diseño dentro del editor provenía de la franja superior reservada por GrapesJS: se ocultaban sus paneles, pero el Canvas mantenía `--gjs-canvas-top`. En la pestaña del inspector ahora se colapsa a `0px`, se oculta el chrome nativo y el lienzo ocupa el alto completo. La página publicada no estaba afectada.
+- Verificaciones: 225 comprobaciones estáticas y runtime real con detección del SVG desde su contenedor, `inspectorCanvasTop: 0px`, estilos, grid, publicación, video y sonido correctos.
+- Checkpoint WordPress `2e237f1 fix(canvas): expose SVG controls and collapse editor chrome`; versión `0.1.11-dev` desplegada y verificada en el servidor.
