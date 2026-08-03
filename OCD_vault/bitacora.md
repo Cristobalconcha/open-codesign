@@ -381,3 +381,15 @@ No registrar secretos, tokens, claves, contenido sensible de configuración ni d
 - Verificaciones: 222 comprobaciones estáticas, runtime completo con `publicVideoMuted: true`, compensación de header, estructura, estilos, autoguardado y publicación; `git diff --check` correcto.
 - Checkpoint WordPress `5e5a36a fix(canvas): offset admin header and start background video`.
 - El primer despliegue `0.1.7-dev` sufrió un corte transitorio FTPS y no se aceptó como completo. El reintento transfirió y verificó los 22 archivos (`DEPLOY_OK`). La página pública sirve `ocd-canvas-public.js?ver=0.1.7-dev` con ambas correcciones.
+
+## 2026-08-03 — Color SVG, panel lateral unificado y sonido ambiental
+
+- El logotipo importado no es un SVG inline sino una imagen externa `<img src="Logo.svg">`; por eso una propiedad CSS `fill` aplicada directamente a la imagen no podía cambiar su color. El inspector ahora ofrece `fill` y `stroke` para SVG inline y, para SVG externos, un tratamiento por máscara CSS con color claro y color oscuro.
+- La variante oscura responde tanto a `.dark` y `[data-theme="dark"]` como a `prefers-color-scheme: dark`. La implementación conserva el activo SVG original y permite aplicar la personalización a una clase reutilizable.
+- Durante la prueba se encontró y corrigió una carrera del autoguardado: si ya había una escritura en curso, el cambio nuevo podía quedar sin persistir. La cola espera la operación activa y guarda después el estado más reciente.
+- Los dos paneles laterales que se comprimían mutuamente se reorganizaron como pestañas del mismo ancho: `Estructura y componentes` e `Inspector Open CoDesign`. La pestaña elegida se recuerda localmente y GrapesJS recalcula el lienzo al cambiarla.
+- La conexión actual con Open CoDesign Desktop sigue siendo un intercambio explícito: Desktop exporta HTML/CSS/activos y Canvas los importa, persiste y publica. Todavía no existe sincronización viva, exportación inversa a Desktop ni servidor MCP. El importador admite HTML/CSS renderizado de múltiples fuentes, pero no ejecuta JavaScript arbitrario ni interpreta JSX/React sin renderizar.
+- El navegador permite reproducir automáticamente el video de fondo sólo silenciado. El runtime mantiene `muted`, `defaultMuted` y `playsinline` para iniciar la reproducción, pero ahora añade un control accesible `Activar sonido`; el gesto del visitante habilita el audio ambiental sin reiniciar el video y permite volver a silenciarlo.
+- Verificaciones: 13 PHP, tres fixtures/7 páginas, 225 comprobaciones estáticas y runtime completo con estilos computados, SVG adaptable, pestañas laterales, video silenciado al inicio y audio habilitado tras interacción.
+- Checkpoints WordPress: `54a18ef feat(canvas): add adaptive SVG color controls`, `5d8d427 feat(canvas): merge side panels behind tabs` y `6f678db feat(canvas): let visitors enable background audio`.
+- Despliegue verificado por FTPS: 22 archivos, versión remota `0.1.10-dev`. La página pública respondió HTTP 200 y confirmó tanto la versión como el control de sonido en el JavaScript servido.
