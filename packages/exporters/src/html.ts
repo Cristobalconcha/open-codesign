@@ -39,10 +39,11 @@ export async function exportHtml(
   opts: ExportHtmlOptions = {},
 ): Promise<ExportResult> {
   const fs = await import('node:fs/promises');
-  let final = buildHtmlDocument(artifactSource, opts);
+  let preparedSource = artifactSource;
   if (opts.inlineLocalAssets ?? true) {
-    final = await inlineLocalAssetsInHtml(final, opts);
+    preparedSource = await inlineLocalAssetsInHtml(preparedSource, opts);
   }
+  const final = buildHtmlDocument(preparedSource, opts);
   await fs.writeFile(destinationPath, final, 'utf8');
   const stat = await fs.stat(destinationPath);
   return { bytes: stat.size, path: destinationPath };
