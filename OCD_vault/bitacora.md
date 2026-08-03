@@ -401,3 +401,13 @@ No registrar secretos, tokens, claves, contenido sensible de configuración ni d
 - El recuadro vacío que desplazaba el diseño dentro del editor provenía de la franja superior reservada por GrapesJS: se ocultaban sus paneles, pero el Canvas mantenía `--gjs-canvas-top`. En la pestaña del inspector ahora se colapsa a `0px`, se oculta el chrome nativo y el lienzo ocupa el alto completo. La página publicada no estaba afectada.
 - Verificaciones: 225 comprobaciones estáticas y runtime real con detección del SVG desde su contenedor, `inspectorCanvasTop: 0px`, estilos, grid, publicación, video y sonido correctos.
 - Checkpoint WordPress `2e237f1 fix(canvas): expose SVG controls and collapse editor chrome`; versión `0.1.11-dev` desplegada y verificada en el servidor.
+
+## 2026-08-03 — Brand convierte logotipos SVG en vectores nativos
+
+- La captura humana aclaró que la franja gris era el chrome nativo de GrapesJS y que el navegador recordaba la pestaña de componentes. El editor ahora abre siempre en `Inspector Open CoDesign`; GrapesJS sigue disponible mediante su pestaña, pero un estado local antiguo ya no puede ocultar Brand.
+- Se reemplazó la recoloración por máscara. La sección permanente `Brand · logotipo vectorial` detecta el SVG externo del documento aunque no exista selección y ofrece convertirlo explícitamente.
+- La conversión lee el SVG, rechaza o elimina contenido activo, materializa reglas geométricas necesarias, conserva `viewBox`, ID y clases, y sustituye `<img src="Logo.svg">` por un `<svg data-ocd-brand-logo="primary">` con sus trazados nativos.
+- Los colores claro y oscuro se guardan como variables Brand y se aplican a las geometrías vectoriales. El saneador admite `fill-rule` y `clip-rule` para no deformar trazados al publicar. La implementación anterior de `mask-image` fue eliminada.
+- No se requiere recargar el HTML: la migración opera sobre el documento Canvas ya persistido y luego entra en el autoguardado normal.
+- Verificaciones: 225 comprobaciones estáticas y runtime completo con `brandVectorApplied: true`, ausencia de máscaras, inspector en `top: 0`, persistencia, publicación, video y audio correctos.
+- Checkpoint WordPress `f2d9b8e feat(canvas): promote SVG logos to native Brand vectors`; versión `0.1.12-dev` desplegada por FTPS con 22 archivos verificados. El primer intento agotó el tiempo después de transferir los archivos; una segunda ejecución cerró formalmente con `DEPLOY_OK`.
