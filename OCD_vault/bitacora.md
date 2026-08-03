@@ -295,3 +295,15 @@ No registrar secretos, tokens, claves, contenido sensible de configuración ni d
 - Se adoptó provisionalmente una estrategia de editabilidad progresiva sin pérdida: HTML estructurado editable + CSS original preservado como autoridad visual + tipos `ocd-*` para comportamientos comprendidos + fallback crudo para lo todavía no normalizado. El iframe de GrapesJS se usa sólo dentro del lienzo del editor; la publicación continúa siendo HTML/CSS nativo.
 - Checkpoint local del spike: `0c9395c spike(canvas): prove editable Santa Luisa import with GrapesJS`. El repositorio de investigación no tiene remoto, por lo que no existe destino de push.
 - Pendiente inmediato: trasladar este spike a una pantalla experimental del plugin WordPress, empaquetar los activos con rutas portables y comprobar edición/guardado/reapertura sobre la instalación de prueba antes de decidir la adopción definitiva de GrapesJS.
+
+## 2026-08-03 — Empaquetado fiel de activos JSX verificado con Santa Luisa
+
+- Se corrigió una pérdida en los tres exportadores de Desktop: las referencias locales dentro de `App.jsx` se buscaban después de envolver y escapar la fuente en el runtime HTML. Ahora se recolectan, reescriben o embeben antes de construir el documento autónomo.
+- HTML y HTML renderizado convierten imágenes y videos locales en `data:` URIs. ZIP conserva `source/App.jsx` sin modificaciones y reescribe únicamente la copia ejecutable de `index.html` hacia `assets/`.
+- Se agregó soporte MIME para `.mov` (`video/quicktime`) tanto en el exportador como en el protocolo seguro del workspace; `.mp4` y `.webm` quedan cubiertos explícitamente.
+- Verificación automatizada: Exporters 83/83, workspace protocol 6/6, typecheck de Exporters y Desktop correcto, y Biome correcto sobre los 10 archivos modificados.
+- Prueba real con `SantaLuisaDePalpi/App.jsx`: ZIP de 128.072.585 bytes con 9 activos, incluidos `familia.mov`, `Simular drone.mp4`, imágenes y `Logo.svg`; 14 entradas totales según `manifest.json`.
+- El SHA-256 de `source/App.jsx` dentro del ZIP coincide exactamente con el original (`F3B1B4DB7384687D4779297E2511E9C5B3EE7C406D6EF362A608535419401477`). `index.html` contiene las rutas portables del video y del logotipo.
+- Edge abrió el `index.html` extraído desde disco y renderizó correctamente el hero, navegación, tarjetas y plano de parcelas con los activos locales. La captura de verificación quedó en `open-codesign-research/grapesjs-santa-spike/output/santa-luisa-desktop-export.png`.
+- Checkpoint de implementación `bc338bb` en `agent/opencode-fidelity`; integrado en `feature/edit-mode` como `e207718 fix(exporters): preserve JSX asset references`.
+- El push de la rama se intentó, pero Git quedó esperando autenticación de GitHub y se canceló para no bloquear el trabajo nocturno. Los commits locales y los artefactos de prueba quedaron preservados.
