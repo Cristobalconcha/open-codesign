@@ -307,3 +307,4 @@ No registrar secretos, tokens, claves, contenido sensible de configuración ni d
 - Edge abrió el `index.html` extraído desde disco y renderizó correctamente el hero, navegación, tarjetas y plano de parcelas con los activos locales. La captura de verificación quedó en `open-codesign-research/grapesjs-santa-spike/output/santa-luisa-desktop-export.png`.
 - Checkpoint de implementación `bc338bb` en `agent/opencode-fidelity`; integrado en `feature/edit-mode` como `e207718 fix(exporters): preserve JSX asset references`.
 - El push de la rama se intentó, pero Git quedó esperando autenticación de GitHub y se canceló para no bloquear el trabajo nocturno. Los commits locales y los artefactos de prueba quedaron preservados.
+- Se agregó `open-codesign-research/grapesjs-santa-spike/open-editor.cmd` como acceso de doble clic al editor experimental local de Santa Luisa.
