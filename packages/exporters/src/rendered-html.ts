@@ -23,15 +23,15 @@ export async function buildExportHtmlDocument(
   artifactSource: string,
   opts: BrowserRenderOptions = {},
 ): Promise<string> {
-  let html = buildHtmlDocument(artifactSource, {
+  let preparedSource = artifactSource;
+  if (opts.inlineLocalAssets ?? true) {
+    preparedSource = await inlineLocalAssetsInHtml(preparedSource, opts);
+  }
+  return buildHtmlDocument(preparedSource, {
     prettify: false,
     sourcePath: opts.sourcePath,
     injectTailwind: opts.injectTailwind ?? true,
   });
-  if (opts.inlineLocalAssets ?? true) {
-    html = await inlineLocalAssetsInHtml(html, opts);
-  }
-  return html;
 }
 
 export function shouldRenderForStaticDom(

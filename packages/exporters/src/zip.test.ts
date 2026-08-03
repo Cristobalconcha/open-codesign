@@ -18,6 +18,7 @@ beforeAll(() => {
   tempDir = realpathSync(mkdtempSync(join(tmpdir(), 'codesign-zip-test-')));
   mkdirSync(join(tempDir, 'assets'), { recursive: true });
   writeFileSync(join(tempDir, 'assets', 'logo.svg'), '<svg></svg>');
+  writeFileSync(join(tempDir, 'assets', 'familia.mov'), Buffer.from([0, 1, 2, 3]));
 });
 
 afterAll(() => {
@@ -118,6 +119,30 @@ describe('exportZip', () => {
 
     expect(existsSync(join(extractDir, 'assets', 'logo.svg'))).toBe(true);
     expect(readFileSync(join(extractDir, 'index.html'), 'utf8')).toContain('src="assets/logo.svg"');
+  });
+
+  it('collects JSX image and video assets before wrapping while preserving original source', async () => {
+    const source =
+      'function App() { return <main><img src="/assets/logo.svg" /><video src="assets/familia.mov" /></main>; }';
+    const dest = join(tempDir, 'jsx-assets.zip');
+    await exportZip(source, dest, {
+      assetBasePath: tempDir,
+      assetRootPath: tempDir,
+      sourcePath: 'App.jsx',
+    });
+
+    const { Unzip } = await import('zip-lib');
+    const extractDir = join(tempDir, 'jsx-assets-extracted');
+    const unzip = new Unzip();
+    await unzip.extract(dest, extractDir);
+
+    expect(existsSync(join(extractDir, 'assets', 'logo.svg'))).toBe(true);
+    expect(existsSync(join(extractDir, 'assets', 'familia.mov'))).toBe(true);
+    const indexHtml = readFileSync(join(extractDir, 'index.html'), 'utf8');
+    expect(indexHtml).toContain('assets/logo.svg');
+    expect(indexHtml).toContain('assets/familia.mov');
+    expect(indexHtml).not.toContain('/assets/logo.svg');
+    expect(readFileSync(join(extractDir, 'source', 'App.jsx'), 'utf8')).toBe(source);
   });
 
   it('bundles workspace DESIGN.md when present', async () => {

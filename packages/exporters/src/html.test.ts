@@ -10,6 +10,7 @@ beforeAll(() => {
   tempDir = mkdtempSync(join(tmpdir(), 'codesign-html-test-'));
   mkdirSync(join(tempDir, 'assets'), { recursive: true });
   writeFileSync(join(tempDir, 'assets', 'logo.svg'), '<svg></svg>');
+  writeFileSync(join(tempDir, 'assets', 'familia.mov'), Buffer.from([0, 1, 2, 3]));
 });
 
 afterAll(() => {
@@ -77,5 +78,24 @@ describe('buildHtmlDocument', () => {
     const out = readFileSync(dest, 'utf8');
     expect(out).toContain('src="data:image/svg+xml;charset=utf-8,');
     expect(out).not.toContain('src="assets/logo.svg"');
+  });
+
+  it('inlines JSX image and QuickTime video references before wrapping the runtime', async () => {
+    const dest = join(tempDir, 'jsx-assets.html');
+    await exportHtml(
+      'function App() { return <main><img src="assets/logo.svg" /><video src="assets/familia.mov" /></main>; }',
+      dest,
+      {
+        assetBasePath: tempDir,
+        assetRootPath: tempDir,
+        sourcePath: 'App.jsx',
+        prettify: false,
+      },
+    );
+
+    const out = readFileSync(dest, 'utf8');
+    expect(out).toContain('data:image/svg+xml;charset=utf-8,');
+    expect(out).toContain('data:video/quicktime;base64,AAECAw==');
+    expect(out).not.toContain('assets/familia.mov');
   });
 });

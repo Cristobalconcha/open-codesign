@@ -464,6 +464,10 @@ function mimeForPath(filePath: string): string {
       return 'text/javascript';
     case '.json':
       return 'application/json';
+    case '.mov':
+      return 'video/quicktime';
+    case '.mp4':
+      return 'video/mp4';
     case '.otf':
       return 'font/otf';
     case '.png':
@@ -476,6 +480,8 @@ function mimeForPath(filePath: string): string {
       return 'text/plain';
     case '.webp':
       return 'image/webp';
+    case '.webm':
+      return 'video/webm';
     case '.woff':
       return 'font/woff';
     case '.woff2':

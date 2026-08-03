@@ -14,6 +14,7 @@ beforeAll(() => {
   tempDir = mkdtempSync(join(tmpdir(), 'codesign-assets-test-'));
   mkdirSync(join(tempDir, 'assets', 'fonts'), { recursive: true });
   writeFileSync(join(tempDir, 'assets', 'logo.svg'), '<svg><title>Logo</title></svg>');
+  writeFileSync(join(tempDir, 'assets', 'familia.mov'), Buffer.from([0, 1, 2, 3]));
   writeFileSync(join(tempDir, 'assets', 'fonts', 'demo.woff2'), Buffer.from([1, 2, 3]));
   writeFileSync(
     join(tempDir, 'assets', 'site.css'),
@@ -57,5 +58,14 @@ describe('local exporter assets', () => {
     });
 
     expect(out).toContain('src="assets/logo.svg?v=1"');
+  });
+
+  it('uses the QuickTime MIME type when inlining MOV assets', async () => {
+    const out = await inlineLocalAssetsInHtml('<video src="assets/familia.mov"></video>', {
+      assetBasePath: tempDir,
+      assetRootPath: tempDir,
+    });
+
+    expect(out).toContain('src="data:video/quicktime;base64,AAECAw=="');
   });
 });

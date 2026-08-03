@@ -47,9 +47,14 @@ describe('resolveWorkspaceUrl', () => {
   it('resolves browser-native preview file types', () => {
     const image = resolveWorkspaceUrl(`workspace://${designId}/assets/logo.png`, resolveWorkspace);
     const pdf = resolveWorkspaceUrl(`workspace://${designId}/brief.pdf`, resolveWorkspace);
+    const quickTime = resolveWorkspaceUrl(
+      `workspace://${designId}/assets/familia.mov`,
+      resolveWorkspace,
+    );
 
     expect(image.ok && image.value.mime).toBe('image/png');
     expect(pdf.ok && pdf.value.mime).toBe('application/pdf');
+    expect(quickTime.ok && quickTime.value.mime).toBe('video/quicktime');
   });
 
   it('rejects unknown designs and unsupported file extensions', () => {

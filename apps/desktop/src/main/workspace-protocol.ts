@@ -46,6 +46,7 @@ const ALLOWED_MIME_BY_EXT = new Map<string, string>([
   ['.pdf', 'application/pdf'],
   ['.map', 'application/json; charset=utf-8'],
   ['.mp4', 'video/mp4'],
+  ['.mov', 'video/quicktime'],
   ['.webm', 'video/webm'],
   ['.mp3', 'audio/mpeg'],
   ['.wav', 'audio/wav'],
