@@ -346,3 +346,13 @@ No registrar secretos, tokens, claves, contenido sensible de configuración ni d
 - Verificaciones: 13 archivos PHP parseados, tres fixtures/7 páginas, 221 comprobaciones estáticas y runtime completo con video propio, resolución de activo, revisión 2 y URL publicada simulada; `git diff --check` correcto.
 - Checkpoints WordPress: `45171dc feat(canvas): resolve assets and publish pages` y `b5f6dde chore(plugin): bump Canvas asset version`.
 - Despliegue: 22 archivos transferidos y verificados; versión de assets `0.1.1-dev` para invalidar caché. Home, JavaScript del editor y logo respondieron HTTP 200. Falta únicamente que Cristóbal ejecute el primer `Publicar/actualizar página` con su sesión autenticada para validar el permalink real.
+
+## 2026-08-03 — Corrección del flujo real de publicación Canvas
+
+- La prueba autenticada de Cristóbal confirmó que el botón no había creado ninguna página. La API pública de WordPress mostró solamente las tres páginas existentes (Inicio, Preguntas frecuentes y Contacto), por lo que el fallo no se dio por cerrado mediante la simulación local.
+- Se reemplazaron las dos peticiones sucesivas —guardar y después publicar— por una operación de servidor única: valida `projectData`, HTML y CSS, guarda la revisión y sólo entonces crea o actualiza la página vinculada por ID estable. La respuesta incluye revisión, fecha y permalink.
+- El cliente bloquea el botón mientras procesa, muestra el estado en una franja visible, abre automáticamente la página resultante y presenta un error explícito si WordPress rechaza alguna fase.
+- La primera ejecución diagnosticó el motivo exacto del rechazo: el HTML importado conservaba `<base>` y `<meta>`, elementos de cabecera que no deben formar parte del contenido de una página. No se relajó la seguridad del saneador; la serialización ahora analiza la salida y conserva exclusivamente `body.innerHTML`.
+- La prueba de navegador incorpora deliberadamente `<base>` y `<meta>` y exige su eliminación. Verificaciones finales: 13 PHP parseados, tres fixtures/7 páginas, 221 comprobaciones estáticas, runtime con `headTagsStripped: true`, revisión 2, estilos, grid, conducta, video y permalink simulados; `git diff --check` correcto.
+- Checkpoints WordPress: `b553b07 fix(canvas): publish saved page atomically` y `7d3ae3c fix(canvas): publish body markup only`.
+- Se desplegaron y verificaron por FTPS los 22 archivos del plugin. La versión remota `0.1.3-dev` contiene tanto la publicación atómica como el serializador de cuerpo; falta repetir un único clic autenticado para comprobar el permalink real.
