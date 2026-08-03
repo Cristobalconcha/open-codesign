@@ -308,3 +308,10 @@ No registrar secretos, tokens, claves, contenido sensible de configuración ni d
 - Checkpoint de implementación `bc338bb` en `agent/opencode-fidelity`; integrado en `feature/edit-mode` como `e207718 fix(exporters): preserve JSX asset references`.
 - El push de la rama se intentó, pero Git quedó esperando autenticación de GitHub y se canceló para no bloquear el trabajo nocturno. Los commits locales y los artefactos de prueba quedaron preservados.
 - Se agregó `open-codesign-research/grapesjs-santa-spike/open-editor.cmd` como acceso de doble clic al editor experimental local de Santa Luisa.
+
+## 2026-08-03 — Corrección de identidad del prototipo Santa Cecilia
+
+- Cristóbal precisó que el prototipo utilizado para investigar la conversión y el editor visual corresponde a **Santa Cecilia**.
+- El caso publicado y configurado en WordPress continúa siendo **Santa Luisa de Palpi**. No deben tratarse como un único proyecto aunque hoy algunos artefactos compartan la carpeta histórica `SantaLuisaDePalpi`.
+- Los archivos fuente que identifican el prototipo son `Santaceciliadepalpi.html` y `Santaceciliadepalpi-fixed.html`. El segundo sólo corrige la declaración JSX inválida para permitir la ejecución del mismo prototipo.
+- Los nombres internos del spike GrapesJS todavía dicen `santa-luisa`; se consideran nombres provisionales de artefactos y no una declaración de identidad. No se renombrarán hasta revisar las dependencias y referencias para evitar romper el experimento reproducible.
