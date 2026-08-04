@@ -434,3 +434,45 @@ No registrar secretos, tokens, claves, contenido sensible de configuración ni d
 - Se generó el instalador x64 `apps/desktop/release/open-codesign-0.2.1-x64-setup.exe` (SHA-256 `1C4D49806526A32E36A6E60234D306398467DE97A7112677926307D5B084798D`). Para evitar alterar aún la instalación estable, se abrió y verificó `release/win-unpacked/Open CoDesign.exe`: cinco procesos respondieron y `main.log` registró un arranque limpio usando el perfil compartido.
 - Se crearon accesos personales `Open CoDesign - Desarrollo` en Inicio y Escritorio. El acceso estable existente conserva `C:\Program Files\Open CoDesign`; el lanzador de desarrollo elimina `ELECTRON_RUN_AS_NODE` y abre exclusivamente el build empaquetado del fork.
 - El push reglamentario ejecutó con éxito todos los typechecks del monorepo, pero el hook volvió a detenerse en el lint global por los archivos no rastreados y preexistentes `scripts/stage2-edittab.mjs` y `scripts/stage2-register.mjs`. No se omitió el hook remoto y esos archivos no fueron modificados.
+
+## 2026-08-03 — Estados Entrada/Scroll del encabezado Canvas
+
+- El comportamiento declarativo `scroll-threshold` ya existente se convirtió en una capacidad editable del inspector. Al seleccionar un `header` o `nav`, el usuario puede activar el comportamiento, alternar la previsualización `Entrada` / `Con scroll` y definir el umbral en píxeles.
+- Cada estado admite fondo, texto y enlaces, logo SVG, alto mínimo, padding, sombra, desenfoque y duración de transición. El resto de las propiedades del inspector también respeta el estado seleccionado.
+- Los cambios locales usan una identidad estable `data-ocd-header-id`; no se escriben sobre la clase global `.nav`. Un segundo encabezado no recibe accidentalmente los cambios del primero y un `<header>` sin clase `.nav` también funciona.
+- La previsualización se fija sólo en el DOM del Canvas mediante `data-ocd-preview-scroll-state`; no se serializa, pero sobrevive a cambios de umbral, scroll y resize durante la edición. La página publicada decide el estado por el desplazamiento real.
+- La revisión independiente detectó antes de publicar la pérdida de preview y el selector global; ambos problemas fueron corregidos. La segunda revisión terminó sin hallazgos.
+- La prueba real de navegador cubre dos navs, un header sin `.nav`, aislamiento del estilo local, cambio de umbral, resize, guardado y recarga. `npm run check`, `npm run check:canvas-runtime`, ambos `node --check` y `git diff --check` aprobaron.
+- Checkpoint WordPress: `a7c7dc3 feat(canvas): edit header entry and scroll states`.
+- Despliegue FTPS verificado: 22 archivos (`DEPLOY_OK`), versión remota `0.1.14-dev`; la página Canvas respondió HTTP 200 con esa versión.
+
+## 2026-08-03 — Decisión para ambiente sonoro y playlist
+
+- Se acordó incorporar un módulo portable de ambiente sonoro para secuencias de pájaros, agua, viento u otros audios, en vez de depender de un único loop corto del video.
+- La representación será HTML estándar con fuentes de audio y comportamiento declarativo allowlisted: playlist secuencial o aleatoria, continuidad entre pistas, transición suave y control accesible de sonido. No se guardará como JavaScript arbitrario ni como un bloque opaco.
+- Las políticas de los navegadores bloquean cualquier reproducción audible automática, incluido audio puro, antes de una interacción. La experiencia prevista inicia el ambiente mediante un gesto natural o el control `Escuchar el entorno`, continúa automáticamente durante la visita y recuerda la preferencia de silencio del visitante.
+- Pendiente de implementación: bloque Canvas, selección de audios desde Medios, editor de orden/loop/transición y runtime público compartido con el control de sonido del video.
+
+## 2026-08-03 — Estados del encabezado accesibles sobre el lienzo
+
+- La prueba humana mostró que Entrada/Scroll estaba mal ubicado: el inspector sólo lo hacía visible al seleccionar exactamente el nodo técnico `header` o `nav`. Ahora cualquier selección dentro del encabezado —incluidos logo, enlaces y contenedores internos— reconoce su ancestro y muestra el panel correspondiente.
+- El propio objeto seleccionado incorpora un toolbar contextual: `⚑` activa o abre los estados; `E` previsualiza Entrada y `S` previsualiza Scroll. Los indicadores activos se muestran en color de acento y el inspector detallado sigue disponible para editar sus propiedades y el umbral.
+- Los controles son transitorios del editor. Al abandonar el encabezado se restaura el toolbar original, no se serializan comandos ni atributos de interfaz en `project_data`, y el runtime recalcula inmediatamente el estado real correspondiente a la posición de scroll.
+- La prueba de navegador cubre selección desde un hijo, aparición del toolbar, alternancia E/S, activación mediante pin, restauración del toolbar, ausencia de serialización, salida del preview y persistencia tras guardar/recargar.
+- Verificaciones: 13 PHP, tres fixtures/7 páginas, 225 comprobaciones estáticas, ambos `node --check`, `git diff --check` y runtime real completo. Una revisión independiente detectó el recálculo pendiente al salir del header; fue corregido y cubierto por la prueba.
+- Checkpoint WordPress: `2d567f2 feat(canvas): expose header states on canvas`.
+- Despliegue FTPS verificado: 22 archivos (`DEPLOY_OK`), versión remota `0.1.15-dev`; la página Canvas respondió HTTP 200 y el JavaScript remoto confirmó los controles y la detección de ancestro.
+
+## 2026-08-04 — Flujo incremental real de Crear y Editar en Desktop
+
+- Se retomó el frente interno de Open CoDesign Desktop con un criterio de aceptación completo: proyecto existente → nuevos insumos → análisis IA delta → checklist intermedia → confirmación → edición localizada sobre el mismo workspace → preview. El mapa, el folleto y WordPress quedaron explícitamente fuera de esta entrega.
+- Claude Code CLI con Sonnet realizó la auditoría y dos implementaciones acotadas. Codex revisó cada diff, corrigió atomicidad, nombres temporales, límites de IDs, clasificación de workspaces existentes, persistencia de gaps y semántica de propuestas antes de aceptar los checkpoints.
+- `.codesign/edit-context.json` admite ahora rondas sucesivas. Los materiales y decisiones no mencionados se conservan; una definición nueva sustituye a la previa sólo si comparte su ID. La escritura usa temporal y backup recuperable, y un fallo revierte únicamente los archivos creados en la ronda actual.
+- El compositor abre revisión en cada solicitud explícita no silenciosa. `create` exige objetivo, estructura, contenido, sistema visual, comportamiento, activos/placeholders y referentes; toda omisión del proveedor se materializa como pregunta abierta. `edit` recibe el contexto validado, devuelve sólo el delta y aplica la regla “silencio = preservar”.
+- Un workspace vinculado que ya contiene una fuente se reconoce como edición aunque aún no tenga chat ni contexto. Después de confirmar, el store persiste sobre el mismo `designId` y reanuda `sendPrompt` sin crear otro diseño. El agente conserva su regla de inspeccionar el source existente y editarlo localmente.
+- Las propuestas o autoridades desconocidas que el usuario no confirma quedan `open`; ya no se convierten por omisión en decisiones confirmadas. Los gaps del análisis se guardan también como decisiones abiertas para que el agente pueda proponer una solución o usar placeholders.
+- Checkpoints Desktop: `b0cac54 feat(edit-mode): accumulate reviewed evidence rounds` y `cd3d241 feat(edit-mode): review creation and edit deltas`.
+- Verificación amplia: Shared 231/231, Core 455/455 y Desktop 1.424/1.424. Un test de temporización falló una vez bajo carga paralela y aprobó aislado y en la repetición completa. Typecheck de Shared/Core/Desktop, Biome focalizado, lint del hook y build de producción aprobaron.
+- Se generó un instalador separado de la versión estable en `apps/desktop/release-edit-mode-cd3d241/open-codesign-0.2.1-x64-setup.exe`, 95.408.207 bytes, SHA-256 `353DE254F034DB26F39792931248B504A16A6AFC54728CBFEBBA77E2FBF14FA6`. Es un build local sin firma digital y no fue instalado.
+- El ejecutable desempaquetado pasó el smoke de arranque con perfil aislado: cuatro procesos Electron permanecieron activos. Para la prueba se anuló sólo en el proceso hijo la variable de esta terminal `ELECTRON_RUN_AS_NODE=1`; desde un acceso directo normal esa variable no existe.
+- Pendiente de prueba humana: abrir el build con la configuración real del proveedor, vincular una copia de un proyecto existente, pedir una modificación pequeña con un nuevo insumo, revisar el checklist delta y evaluar calidad/latencia de la IA. No se hardcodearon claves ni modelos.

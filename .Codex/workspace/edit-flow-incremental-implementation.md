@@ -30,7 +30,7 @@ El flujo de creación debe usar la misma revisión, pero como checklist inicial 
 - [x] Permitir elegir y conservar como destino el workspace existente.
 - [x] Integrar la checklist delta antes de una edición con IA.
 - [x] Entregar la tarea confirmada al agente sobre el proyecto existente.
-- [ ] Verificar persistencia, reapertura, preview y regresiones de Crear.
+- [x] Verificar persistencia, reapertura, preview y regresiones de Crear.
 - [ ] Crear commits de checkpoint, actualizar bitácora y realizar el push de la sesión.
 
 ## Política de revisión
