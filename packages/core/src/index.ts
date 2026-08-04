@@ -59,7 +59,7 @@ export {
   extractDesignAnalysisJson,
   parseDesignAnalysis,
 } from './edit-analysis.js';
-export { parseEditContext } from './edit-context.js';
+export { mergeEditContext, parseEditContext } from './edit-context.js';
 export {
   PROVIDER_KEY_HELP_URL,
   remapProviderError,

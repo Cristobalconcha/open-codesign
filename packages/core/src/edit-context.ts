@@ -130,6 +130,32 @@ function parseDefinition(value: unknown): EditContextDefinition | null {
   };
 }
 
+/**
+ * Fold a new round of evidence into a previously persisted context. A delta
+ * definition replaces a previous one only when it shares its id; every other
+ * previous definition keeps its prior active/open status. Materials are never
+ * replaced, only appended — callers must reserve ids that do not collide with
+ * `previous.materials` (see `buildCreateReviewSources`'s `reservedSourceIds`
+ * parameter) or the merged result fails `parseEditContext`'s uniqueness check.
+ */
+export function mergeEditContext(previous: EditContext | null, delta: EditContext): EditContext {
+  if (previous === null) return delta;
+  const deltaDefinitionIds = new Set(delta.detected.map((definition) => definition.id));
+  const preservedDefinitions = previous.detected.filter(
+    (definition) => !deltaDefinitionIds.has(definition.id),
+  );
+  const preservedActive = previous.active.filter((id) => !deltaDefinitionIds.has(id));
+  const preservedOpen = previous.open.filter((id) => !deltaDefinitionIds.has(id));
+  return {
+    schemaVersion: 2,
+    materials: [...previous.materials, ...delta.materials],
+    detected: [...preservedDefinitions, ...delta.detected],
+    active: [...preservedActive, ...delta.active],
+    open: [...preservedOpen, ...delta.open],
+    generatedAt: delta.generatedAt,
+  };
+}
+
 export function parseEditContext(value: unknown): EditContext | null {
   if (
     !isRecord(value) ||

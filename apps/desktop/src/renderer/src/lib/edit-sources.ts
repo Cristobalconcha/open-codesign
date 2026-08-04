@@ -121,7 +121,9 @@ export function parseReplacementValue(
 
 export function nextSourceId(taken: Iterable<string>): string {
   const used = new Set(taken);
-  for (let index = 1; index <= MAX_EDIT_SOURCES + 1; index += 1) {
+  // MAX_EDIT_SOURCES limits one analysis batch, not the lifetime of a
+  // workspace. Later review rounds may already have many persisted ids.
+  for (let index = 1; index <= 10_000; index += 1) {
     const id = `source-${index}`;
     if (!used.has(id)) return id;
   }

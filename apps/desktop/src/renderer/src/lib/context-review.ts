@@ -11,6 +11,21 @@ import {
 /** Reserved id for the project prompt so it never collides with `source-N`. */
 export const PROMPT_SOURCE_ID = 'prompt';
 
+/**
+ * Pick `preferredId`, or the first `${preferredId}-N` (N >= 2) not already in
+ * `taken`. Used for the prompt source id: a later review round on a design
+ * that already has a persisted context must not reuse the `prompt` id from an
+ * earlier round.
+ */
+function nextAvailableId(preferredId: string, taken: ReadonlySet<string>): string {
+  if (!taken.has(preferredId)) return preferredId;
+  for (let index = 2; index <= 10_000; index += 1) {
+    const candidate = `${preferredId}-${index}`;
+    if (!taken.has(candidate)) return candidate;
+  }
+  throw new Error(`No free id for "${preferredId}"`);
+}
+
 export interface CreateReviewRequest {
   prompt: string;
   attachments: LocalInputFile[];
@@ -47,11 +62,20 @@ export interface CreateReviewLabels {
  * first source — a design started from text alone still gets reviewed. Files
  * and the reference URL are additional sources; anything the analyzer cannot
  * ingest is reported as a note rather than silently dropped.
+ *
+ * `reservedSourceIds` are source ids already persisted in `.codesign/
+ * edit-context.json` from an earlier review round on the same design (see
+ * `evaluateContextReview`). A later round must not reuse them — the main
+ * process merges each round's context onto the previous one by id, so a
+ * collision would silently replace or invalidate prior evidence. First
+ * creation passes no reserved ids and keeps the original `prompt`/`source-N`
+ * ids unchanged.
  */
 export function buildCreateReviewSources(
   request: CreateReviewRequest,
   labels: CreateReviewLabels,
   workspacePath: string,
+  reservedSourceIds: Iterable<string> = [],
 ): CreateReviewSources {
   const sources: EditSource[] = [];
   const notes: string[] = [];
@@ -63,14 +87,17 @@ export function buildCreateReviewSources(
       ? prompt.slice(0, MAX_EDIT_SOURCE_TEXT_CHARS)
       : prompt;
   if (promptText.length !== prompt.length) notes.push(labels.promptTruncated);
+
+  const taken = new Set<string>(reservedSourceIds);
+  const promptId = nextAvailableId(PROMPT_SOURCE_ID, taken);
+  taken.add(promptId);
   sources.push({
     kind: 'text',
-    id: PROMPT_SOURCE_ID,
+    id: promptId,
     label: labels.promptLabel,
     text: promptText,
   });
 
-  const taken = new Set<string>([PROMPT_SOURCE_ID]);
   let capacityExceeded = false;
   for (const originalFile of request.attachments) {
     if (sources.length >= MAX_EDIT_SOURCES) {

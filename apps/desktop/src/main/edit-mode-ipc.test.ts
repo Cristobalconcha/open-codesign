@@ -1,8 +1,8 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { EditContext } from '@open-codesign/core';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   buildEditContextV2,
   type EditSource,
@@ -14,9 +14,20 @@ import {
   parseInput,
   parseSourcesInput,
   readEditModeContext,
+  writeFileAtomic,
 } from './edit-mode-ipc';
 import { preparePromptContext } from './prompt-context';
 import { createDesign, initInMemoryDb, updateDesignWorkspace } from './snapshots-db';
+
+// `writeFileAtomic`'s recovery path is only reachable by making the second of
+// its two `rename` calls fail. `vi.spyOn` cannot redefine a Node ESM module's
+// exports, so mock the module and keep every other export as the real
+// implementation — only `rename` is wrapped so a single test can force one
+// call to fail while every other test in this file still hits real disk I/O.
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs/promises')>();
+  return { ...actual, rename: vi.fn(actual.rename) };
+});
 
 const temporaryRoots: string[] = [];
 
@@ -345,5 +356,195 @@ describe('multisource edit workspace initialization', () => {
       usage: 'approved',
       overrideValue: { family: 'Inter' },
     });
+  });
+});
+
+function roundOneEditContext(): EditContext {
+  return {
+    schemaVersion: 2,
+    materials: [{ id: 'brief', path: 'pending', type: 'text/plain', role: 'text', kind: 'text' }],
+    detected: [
+      {
+        id: 'hero-typeface',
+        category: 'typography',
+        label: 'Hero typeface',
+        value: { family: 'Lora' },
+        detectedValue: { family: 'Lora' },
+        resolution: 'preserve',
+        authority: 'confirmed',
+        usage: 'approved',
+        confidence: 'high',
+        source: 'ai-analysis',
+        evidence: 'Brief section 1',
+        provenance: [{ materialId: 'brief', locator: 'section 1' }],
+      },
+      {
+        id: 'color-palette',
+        category: 'color',
+        label: 'Color palette',
+        value: { primary: '#0057B8' },
+        resolution: 'open',
+        authority: 'inferred',
+        usage: 'confirm-before-use',
+        confidence: 'low',
+        source: 'ai-analysis',
+        evidence: 'No swatches found in the brief',
+        provenance: [{ materialId: 'brief' }],
+      },
+    ],
+    active: ['hero-typeface'],
+    open: ['color-palette'],
+    generatedAt: '2026-08-02T00:00:00.000Z',
+  };
+}
+
+function roundTwoEditContext(): EditContext {
+  return {
+    schemaVersion: 2,
+    materials: [{ id: 'notes', path: 'pending', type: 'text/plain', role: 'text', kind: 'text' }],
+    detected: [
+      {
+        id: 'hero-typeface',
+        category: 'typography',
+        label: 'Hero typeface',
+        value: { family: 'Inter' },
+        overrideValue: { family: 'Inter' },
+        resolution: 'replace',
+        authority: 'confirmed',
+        usage: 'approved',
+        confidence: 'high',
+        source: 'manual-override',
+        evidence: 'Follow-up note',
+        provenance: [{ materialId: 'notes' }],
+      },
+    ],
+    active: ['hero-typeface'],
+    open: [],
+    generatedAt: '2026-08-03T00:00:00.000Z',
+  };
+}
+
+describe('multi-round context accumulation', () => {
+  it('a second round adds its material and decision without failing on the existing file', async () => {
+    const { db, design, workspace } = await fixture();
+    await initEditModeWorkspaceSources(
+      db,
+      parseSourcesInput({
+        schemaVersion: 2,
+        designId: design.id,
+        sources: [
+          { kind: 'text', id: 'brief', label: 'Project brief', text: 'Build the landing.' },
+        ],
+        editContext: roundOneEditContext(),
+      }),
+    );
+
+    const result = await initEditModeWorkspaceSources(
+      db,
+      parseSourcesInput({
+        schemaVersion: 2,
+        designId: design.id,
+        sources: [
+          { kind: 'text', id: 'notes', label: 'Follow-up notes', text: 'Use Inter for the hero.' },
+        ],
+        editContext: roundTwoEditContext(),
+      }),
+    );
+
+    expect(result.sourcePaths['notes']).toBe('.codesign/sources/notes.txt');
+    const saved = JSON.parse(
+      await readFile(path.join(workspace, '.codesign/edit-context.json'), 'utf8'),
+    ) as EditContext;
+    expect(saved.schemaVersion).toBe(2);
+    // Both rounds' materials survive.
+    expect(saved.materials.map((material) => material.id)).toEqual(['brief', 'notes']);
+    // A definition round 2 never mentioned is preserved with its prior status.
+    expect(saved.detected.find((definition) => definition.id === 'color-palette')).toMatchObject({
+      resolution: 'open',
+    });
+    expect(saved.open).toEqual(['color-palette']);
+    // The definition repeated in round 2 is replaced by the new decision.
+    expect(saved.detected.find((definition) => definition.id === 'hero-typeface')).toMatchObject({
+      resolution: 'replace',
+      overrideValue: { family: 'Inter' },
+    });
+    expect(saved.active).toEqual(['hero-typeface']);
+  });
+
+  it('rejects a round-2 source id that collides with a persisted material, rolling back the new file and leaving round 1 byte-for-byte intact', async () => {
+    const { db, design, workspace } = await fixture();
+    await initEditModeWorkspaceSources(
+      db,
+      parseSourcesInput({
+        schemaVersion: 2,
+        designId: design.id,
+        sources: [
+          { kind: 'text', id: 'brief', label: 'Project brief', text: 'Build the landing.' },
+        ],
+        editContext: roundOneEditContext(),
+      }),
+    );
+    const contextPath = path.join(workspace, '.codesign', 'edit-context.json');
+    const before = await readFile(contextPath, 'utf8');
+
+    // Round 2 reuses the round-1 source id 'brief' — exactly the collision the
+    // reservation contract (buildCreateReviewSources' reservedSourceIds) exists
+    // to prevent. The merge must reject it instead of persisting a duplicate id.
+    await expect(
+      initEditModeWorkspaceSources(
+        db,
+        parseSourcesInput({
+          schemaVersion: 2,
+          designId: design.id,
+          sources: [
+            { kind: 'text', id: 'brief', label: 'Duplicate id', text: 'Second round text.' },
+          ],
+          editContext: {
+            ...roundTwoEditContext(),
+            materials: [
+              { id: 'brief', path: 'pending', type: 'text/plain', role: 'text', kind: 'text' },
+            ],
+            detected: roundTwoEditContext().detected.map((definition) => ({
+              ...definition,
+              provenance: [{ materialId: 'brief' }],
+            })),
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'IPC_BAD_INPUT' });
+
+    const after = await readFile(contextPath, 'utf8');
+    expect(after).toBe(before);
+    await expect(
+      readFile(path.join(workspace, '.codesign', 'sources', 'brief-2.txt')),
+    ).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+});
+
+describe('writeFileAtomic', () => {
+  it('restores the previous file and cleans up temp state when the final rename fails', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'codesign-atomic-'));
+    temporaryRoots.push(dir);
+    const filePath = path.join(dir, 'edit-context.json');
+    await writeFile(filePath, 'round-1-bytes', 'utf8');
+
+    // `rename` is the mocked export (module-mocked above); every other call
+    // in this suite falls through to the real implementation it wraps. Queue
+    // exactly two: writeFileAtomic's 1st rename moves the existing file aside
+    // (let it succeed for real), its 2nd (temp -> target) is forced to fail.
+    const actualFs = await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises');
+    const renameMock = vi.mocked(rename);
+    renameMock.mockImplementationOnce(actualFs.rename);
+    renameMock.mockImplementationOnce(async () => {
+      throw Object.assign(new Error('simulated disk failure'), { code: 'EIO' });
+    });
+
+    await expect(writeFileAtomic(filePath, 'round-2-bytes')).rejects.toThrow(
+      'simulated disk failure',
+    );
+
+    expect(await readFile(filePath, 'utf8')).toBe('round-1-bytes');
+    const entries = await readdir(dir);
+    expect(entries).toEqual(['edit-context.json']);
   });
 });

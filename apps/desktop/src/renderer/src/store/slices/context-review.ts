@@ -63,7 +63,18 @@ export async function evaluateContextReview(
   if (readContext === undefined) return null;
   const existing = await readContext(designId);
   if (!requiresContextReview({ hasEditContext: existing !== null, chatKinds })) return null;
-  const { sources, notes } = buildCreateReviewSources(request, reviewLabels(), workspacePath);
+  // Reserve ids already persisted from an earlier round so this round's
+  // sources cannot collide with them once the main process merges contexts.
+  const reservedSourceIds =
+    existing?.materials
+      .map((material) => material.id)
+      .filter((id): id is string => id !== undefined) ?? [];
+  const { sources, notes } = buildCreateReviewSources(
+    request,
+    reviewLabels(),
+    workspacePath,
+    reservedSourceIds,
+  );
   if (sources.length === 0) return null;
   return {
     designId,

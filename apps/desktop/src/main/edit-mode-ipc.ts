@@ -1,6 +1,7 @@
-import { mkdir, readFile, stat, unlink, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { mkdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { type EditContext, parseEditContext } from '@open-codesign/core';
+import { type EditContext, mergeEditContext, parseEditContext } from '@open-codesign/core';
 import {
   CodesignError,
   EditAnalysisSourceInput,
@@ -57,10 +58,20 @@ export function parseReadContextInput(raw: unknown): string {
 }
 
 /**
- * Read the persisted edit context for a design. A missing, unreadable, or
+ * Read and parse the edit context at an exact path. A missing, unreadable, or
  * schema-invalid file reads as "no context" so callers gate on a context they
  * can actually trust.
  */
+async function readEditContextFile(contextPath: string): Promise<EditContext | null> {
+  try {
+    const raw = await readFile(contextPath, 'utf8');
+    return parseEditContext(JSON.parse(raw) as unknown);
+  } catch {
+    return null;
+  }
+}
+
+/** Read the persisted edit context for a design. @see readEditContextFile */
 export async function readEditModeContext(
   db: Database,
   designId: string,
@@ -72,11 +83,41 @@ export async function readEditModeContext(
       design.workspacePath,
       '.codesign/edit-context.json',
     );
-    const raw = await readFile(contextPath, 'utf8');
-    return parseEditContext(JSON.parse(raw) as unknown);
+    return await readEditContextFile(contextPath);
   } catch {
     return null;
   }
+}
+
+/**
+ * Replace `filePath` with `contents` without ever leaving it half-written or
+ * missing. The previous file (if any) is renamed aside before the new one
+ * takes its place, and restored if the final rename fails, so a crash or I/O
+ * error between steps cannot destroy the caller's prior state.
+ */
+export async function writeFileAtomic(filePath: string, contents: string): Promise<void> {
+  const nonce = `${process.pid}-${randomUUID()}`;
+  const tmpPath = `${filePath}.tmp-${nonce}`;
+  const backupPath = `${filePath}.bak-${nonce}`;
+  await writeFile(tmpPath, contents, { encoding: 'utf8', flag: 'wx' });
+  let hadPrevious = true;
+  try {
+    await rename(filePath, backupPath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      await unlink(tmpPath).catch(() => {});
+      throw error;
+    }
+    hadPrevious = false;
+  }
+  try {
+    await rename(tmpPath, filePath);
+  } catch (error) {
+    if (hadPrevious) await rename(backupPath, filePath).catch(() => {});
+    await unlink(tmpPath).catch(() => {});
+    throw error;
+  }
+  if (hadPrevious) await unlink(backupPath).catch(() => {});
 }
 
 export interface EditModeSourcesInitInput {
@@ -374,7 +415,7 @@ export async function initEditModeWorkspaceSources(
       sourcePaths[source.id] = reserved.relativePath;
     }
 
-    const editContext: EditContext = {
+    const delta: EditContext = {
       ...input.editContext,
       materials: input.editContext.materials.map((material) => ({
         ...material,
@@ -385,12 +426,19 @@ export async function initEditModeWorkspaceSources(
       workspaceRoot,
       '.codesign/edit-context.json',
     );
-    await writeFile(contextPath, JSON.stringify(editContext, null, 2), {
-      encoding: 'utf8',
-      flag: 'wx',
-    });
-    createdPaths.push(contextPath);
+    // A second or third round of evidence on the same design accumulates onto
+    // whatever is already on disk instead of failing on an existing file or
+    // discarding materials/decisions the caller did not mention this round.
+    const previous = await readEditContextFile(contextPath);
+    const merged = parseEditContext(mergeEditContext(previous, delta));
+    if (merged === null) {
+      badInput('Merged edit context is invalid — source ids likely collide with a prior round');
+    }
+    // Do the fallible database bookkeeping before publishing a context that
+    // references this round's new files. If it fails, the catch below can
+    // still roll those files back while the previous context remains intact.
     touchDesignActivity(db, input.designId);
+    await writeFileAtomic(contextPath, JSON.stringify(merged, null, 2));
     return { sourcePaths };
   } catch (error) {
     for (const createdPath of createdPaths.reverse()) {

@@ -49,6 +49,24 @@ describe('CREATE context review helpers', () => {
     });
   });
 
+  it('avoids source ids already persisted from an earlier review round', () => {
+    const result = buildCreateReviewSources(
+      {
+        prompt: 'Add a pricing section.',
+        attachments: [{ path: 'references/pricing.md', name: 'pricing.md', size: 10 }],
+      },
+      labels,
+      'C:/workspace',
+      ['prompt', 'source-1'],
+    );
+
+    // 'prompt' was already used by round 1's material, so this round's prompt
+    // source must pick a different id instead of colliding with it.
+    expect(result.sources[0]).toMatchObject({ kind: 'text', id: 'prompt-2' });
+    // 'source-1' was already used too, so the attachment must skip it.
+    expect(result.sources[1]).toMatchObject({ kind: 'document', id: 'source-2' });
+  });
+
   it('requires review until a valid context or a delivered turn exists', () => {
     expect(requiresContextReview({ hasEditContext: false, chatKinds: [] })).toBe(true);
     expect(requiresContextReview({ hasEditContext: false, chatKinds: ['user', 'error'] })).toBe(

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { parseEditContext } from './edit-context.js';
+import { mergeEditContext, parseEditContext } from './edit-context.js';
+import type { EditContext, EditContextMaterial } from './index.js';
 
 const valid = () => ({
   schemaVersion: 1,
@@ -110,5 +111,114 @@ describe('parseEditContext', () => {
         detected: [{ ...base.detected[0], provenance: [{ materialId: 'missing-source' }] }],
       }),
     ).toBeNull();
+  });
+});
+
+describe('mergeEditContext', () => {
+  const previous: EditContext = {
+    schemaVersion: 2,
+    materials: [
+      { id: 'm1', path: 'references/m1.png', type: 'image/png', role: 'wireframe', kind: 'image' },
+    ],
+    detected: [
+      {
+        id: 'def-a',
+        category: 'layout',
+        label: 'Layout',
+        value: {},
+        resolution: 'preserve',
+        authority: 'confirmed',
+        usage: 'approved',
+        confidence: 'high',
+        source: 'wireframe-analysis',
+        provenance: [{ materialId: 'm1' }],
+      },
+      {
+        id: 'def-b',
+        category: 'color',
+        label: 'Color',
+        value: { hex: '#111111' },
+        resolution: 'open',
+        authority: 'inferred',
+        usage: 'confirm-before-use',
+        confidence: 'medium',
+        source: 'wireframe-analysis',
+        provenance: [{ materialId: 'm1' }],
+      },
+    ],
+    active: ['def-a'],
+    open: ['def-b'],
+    generatedAt: '2026-08-02T00:00:00.000Z',
+  };
+
+  const deltaMaterial: EditContextMaterial = {
+    id: 'm2',
+    path: '.codesign/sources/m2.txt',
+    type: 'text/plain',
+    role: 'text',
+    kind: 'text',
+  };
+
+  const delta: EditContext = {
+    schemaVersion: 2,
+    materials: [deltaMaterial],
+    detected: [
+      {
+        id: 'def-b',
+        category: 'color',
+        label: 'Color',
+        value: { hex: '#222222' },
+        overrideValue: { hex: '#222222' },
+        resolution: 'replace',
+        authority: 'confirmed',
+        usage: 'approved',
+        confidence: 'high',
+        source: 'manual-override',
+        provenance: [{ materialId: 'm2' }],
+      },
+      {
+        id: 'def-c',
+        category: 'typography',
+        label: 'Typography',
+        value: { family: 'Inter' },
+        resolution: 'preserve',
+        authority: 'confirmed',
+        usage: 'approved',
+        confidence: 'high',
+        source: 'document-analysis',
+        provenance: [{ materialId: 'm2' }],
+      },
+    ],
+    active: ['def-b', 'def-c'],
+    open: [],
+    generatedAt: '2026-08-03T00:00:00.000Z',
+  };
+
+  it('accumulates materials, keeps an untouched definition, and swaps a repeated one', () => {
+    const merged = mergeEditContext(previous, delta);
+
+    expect(merged.materials).toEqual([...previous.materials, ...delta.materials]);
+    expect(merged.detected.map((definition) => definition.id)).toEqual(['def-a', 'def-b', 'def-c']);
+    // def-a is untouched: same object, still active.
+    expect(merged.detected[0]).toEqual(previous.detected[0]);
+    // def-b is replaced by the round-2 decision, no longer open.
+    expect(merged.detected[1]).toEqual(delta.detected[0]);
+    expect(merged.active).toEqual(['def-a', 'def-b', 'def-c']);
+    expect(merged.open).toEqual([]);
+    expect(merged.generatedAt).toBe(delta.generatedAt);
+    expect(parseEditContext(merged)).not.toBeNull();
+  });
+
+  it('passes a delta through unchanged when there is no previous context', () => {
+    expect(mergeEditContext(null, delta)).toEqual(delta);
+  });
+
+  it('produces an invalid context when a delta material id collides with a previous one', () => {
+    const collidingDelta: EditContext = {
+      ...delta,
+      materials: [{ ...deltaMaterial, id: 'm1' }],
+    };
+    const merged = mergeEditContext(previous, collidingDelta);
+    expect(parseEditContext(merged)).toBeNull();
   });
 });
