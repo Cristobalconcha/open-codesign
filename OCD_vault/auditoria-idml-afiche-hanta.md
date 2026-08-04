@@ -14,6 +14,23 @@ La construcción, sin embargo, reproduce el afiche objeto por objeto. Es adecuad
 
 Este IDML es un excelente fixture positivo para el futuro exportador de Open CoDesign y, a la vez, una especificación de lo que debemos superar.
 
+## Alcance correcto para Open CoDesign
+
+El origen experimental de este archivo no define el flujo de producto. Open CoDesign no necesita aplicar OCR, reconocer textos desde una imagen ni reconstruir un impreso terminado. Cuando OCD exporta, ya conoce el contenido, los activos, la jerarquía, la geometría y el sistema visual del diseño.
+
+Este IDML se estudia exclusivamente como ejemplo de la anatomía que debe producir el adaptador editorial:
+
+- contenido de OCD → stories y marcos de texto;
+- activos de OCD → marcos gráficos y recursos en `Links/`;
+- tokens de color → swatches;
+- reglas tipográficas → estilos de párrafo y carácter;
+- componentes y secciones → grupos, capas y estilos de objeto;
+- mesas de trabajo → páginas y spreads;
+- elementos repetidos → páginas maestras;
+- configuración editorial → tamaño, márgenes, sangrado, perfiles y preflight.
+
+IDML es un formato de destino para impresión, no el lenguaje maestro de todo el sistema. La misma definición de diseño de OCD debe poder alimentar adaptadores distintos para los tres grandes dominios: web, interfaces de aplicaciones y documentos impresos/editoriales.
+
 ## Anatomía comprobada
 
 - Paquete ZIP IDML válido de 2.502.141 bytes y 90 entradas.
@@ -87,7 +104,7 @@ El MVP no necesita modelar todo InDesign. Puede partir de una plantilla IDML mí
 7. Página maestra para elementos repetidos.
 8. `designmap.xml` y referencias internas generados al final desde el grafo real.
 
-La IA debe decidir semántica y composición; el escritor IDML debe ser determinista. No conviene pedirle al modelo que escriba libremente todos los XML en cada exportación. La salida de IA debería alimentar una escena validada y el adaptador debería materializarla usando plantillas y reglas estables.
+La IA ya participa en OCD al decidir semántica, sistema visual y composición. El escritor IDML posterior debe ser determinista: recibe el diseño estructurado existente y lo materializa mediante plantillas y reglas estables. No necesita OCR ni debe pedirle nuevamente al modelo que deduzca o reescriba libremente todo el documento.
 
 ## Criterios de aceptación propuestos
 

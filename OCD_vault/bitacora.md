@@ -520,3 +520,10 @@ No registrar secretos, tokens, claves, contenido sensible de configuración ni d
 - La principal limitación es autoral: una sola capa, cero grupos, página maestra sin contenido y prácticamente todo el formato tipográfico aplicado localmente sobre `Basic Paragraph`. Funciona como afiche terminado, pero no como sistema editorial reutilizable.
 - Las 31 imágenes son PNG RGB y registran 72 ppp efectivos. `Resources/Fonts.xml` conserva fuentes de plantilla y tres estados `Substituted`, mientras las stories usan Arial y Times New Roman. El futuro exportador debe limpiar recursos, controlar fuentes y ejecutar preflight de resolución/color.
 - Se propone usar el afiche como fixture dorado y construir un spike determinista de tres zonas con estilos nominales, capas, grupos, activos empaquetados e IDs estables antes de intentar el afiche completo.
+
+## 2026-08-04 — Corrección de alcance: IDML como adaptador, no como OCR
+
+- Cristóbal aclaró que el Afiche Hanta se entregó para estudiar la estructura interna de un IDML exitoso, no para proponer reconocimiento, OCR o redigitalización como flujo de Open CoDesign.
+- En OCD los textos, activos, estructura, estilos y decisiones ya existen antes de exportar. El adaptador editorial debe traducirlos directamente a stories, marcos, vínculos, swatches, estilos, grupos, capas, páginas y masters.
+- Se consolidan tres grandes destinos desde un núcleo de diseño compartido: web/CMS, interfaces de aplicaciones y documentos impresos/editoriales. Cada adaptador conserva lo común y materializa reglas propias de su medio.
+- IDML queda definido como formato de destino editorial, no como lenguaje canónico universal. La disección del afiche sirve para aprender el contrato de salida y sus controles de calidad.
