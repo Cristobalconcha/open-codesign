@@ -56,6 +56,7 @@ export {
   type DesignAnalysisConflict,
   type DesignAnalysisResult,
   type DesignAnalysisSource,
+  diagnoseDesignAnalysis,
   ensureCreateReviewCoverage,
   extractDesignAnalysisJson,
   parseDesignAnalysis,

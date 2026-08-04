@@ -3,6 +3,7 @@ import {
   DESIGN_ANALYSIS_SYSTEM_PROMPT,
   type DesignAnalysisResult,
   type DesignAnalysisSource,
+  diagnoseDesignAnalysis,
   type EditContext,
   ensureCreateReviewCoverage,
   extractDesignAnalysisJson,
@@ -188,8 +189,11 @@ export async function runEditAnalysis(
   }
   const parsedAnalysis = parseDesignAnalysis(parsedJson, acquired.sources);
   if (parsedAnalysis === null) {
+    const diagnostics = diagnoseDesignAnalysis(parsedJson, acquired.sources)
+      .slice(0, 12)
+      .join(', ');
     throw new CodesignError(
-      'Design analyzer returned data that does not match the evidence schema',
+      `Design analyzer returned data that does not match the evidence schema (${diagnostics})`,
       ERROR_CODES.PROVIDER_ERROR,
     );
   }

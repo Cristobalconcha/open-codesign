@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildDesignAnalysisUserPrompt,
   type DesignAnalysisSource,
+  diagnoseDesignAnalysis,
   ensureCreateReviewCoverage,
   extractDesignAnalysisJson,
   parseDesignAnalysis,
@@ -83,6 +84,50 @@ describe('design analysis contract', () => {
     if (invalidAuthorityVariable === undefined) throw new Error('Missing fixture variable');
     invalidAuthorityVariable.authority = 'probably';
     expect(parseDesignAnalysis(invalidAuthority, sources)).toBeNull();
+    expect(diagnoseDesignAnalysis(invalidAuthority, sources)).toContain(
+      'variables[0].authority:invalid',
+    );
+  });
+
+  it('normalizes harmless scalar and list value drift from live providers', () => {
+    const scalar = result();
+    const first = scalar.variables[0];
+    const second = scalar.variables[1];
+    if (first === undefined || second === undefined) throw new Error('Missing fixture variable');
+    first.value = 'Warm and trustworthy' as never;
+    second.value = ['Home', 'FAQ'] as never;
+    const parsed = parseDesignAnalysis(scalar, sources);
+    expect(parsed?.variables[0]?.value).toEqual({ text: 'Warm and trustworthy' });
+    expect(parsed?.variables[1]?.value).toEqual({ items: ['Home', 'FAQ'] });
+  });
+
+  it('treats null optional provenance fields as absent', () => {
+    const nullable = result();
+    const first = nullable.variables[0];
+    if (first === undefined) throw new Error('Missing fixture variable');
+    first.provenance[0] = {
+      materialId: 'descriptor',
+      locator: null,
+      excerpt: null,
+    } as never;
+    first.appliesTo = null as never;
+    expect(parseDesignAnalysis(nullable, sources)?.variables[0]).toMatchObject({
+      provenance: [{ materialId: 'descriptor' }],
+    });
+  });
+
+  it('diagnoses invalid provider values without echoing private response values', () => {
+    const invalid = result();
+    const first = invalid.variables[0];
+    if (first === undefined) throw new Error('Missing fixture variable');
+    first.value = null as never;
+    first.provenance = [];
+    first.evidence = 'private source content';
+    const diagnostics = diagnoseDesignAnalysis(invalid, sources);
+    expect(diagnostics).toEqual(
+      expect.arrayContaining(['variables[0].value:invalid', 'variables[0].provenance:missing']),
+    );
+    expect(JSON.stringify(diagnostics)).not.toContain('private source content');
   });
 
   it('builds an evidence manifest and extracts fenced provider JSON', () => {

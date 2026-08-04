@@ -476,3 +476,22 @@ No registrar secretos, tokens, claves, contenido sensible de configuración ni d
 - Se generó un instalador separado de la versión estable en `apps/desktop/release-edit-mode-cd3d241/open-codesign-0.2.1-x64-setup.exe`, 95.408.207 bytes, SHA-256 `353DE254F034DB26F39792931248B504A16A6AFC54728CBFEBBA77E2FBF14FA6`. Es un build local sin firma digital y no fue instalado.
 - El ejecutable desempaquetado pasó el smoke de arranque con perfil aislado: cuatro procesos Electron permanecieron activos. Para la prueba se anuló sólo en el proceso hijo la variable de esta terminal `ELECTRON_RUN_AS_NODE=1`; desde un acceso directo normal esa variable no existe.
 - Pendiente de prueba humana: abrir el build con la configuración real del proveedor, vincular una copia de un proyecto existente, pedir una modificación pequeña con un nuevo insumo, revisar el checklist delta y evaluar calidad/latencia de la IA. No se hardcodearon claves ni modelos.
+
+## 2026-08-04 — IDML confirmado como salida editorial de primera clase
+
+- Una prueba externa real confirmó la viabilidad del destino editorial: a partir de un afiche complejo y un IDML vacío que sólo definía el tamaño, ChatGPT reconstruyó un IDML utilizable en InDesign con imágenes, estructura y tipografía. El resultado ahorró horas de trabajo manual.
+- Este resultado eleva IDML desde una posibilidad teórica a un criterio de producto verificable. Open CoDesign debe poder producir un paquete IDML editable, con vínculos o activos empaquetados, geometría, textos, estilos, muestras de color y tipografías declaradas; una imagen plana o un PDF incrustado no cuentan como éxito.
+- Se mantienen dos rutas de entrada compatibles: exportación directa desde el modelo estructurado de Open CoDesign y conversión de HTML/CSS renderizado mediante una escena intermedia. La segunda permite recibir diseños producidos también por otras herramientas.
+- El conversor HTML→IDML no debe traducir sólo etiquetas. Debe capturar el layout computado para un tamaño editorial concreto: cajas, coordenadas, stacking, fondos, bordes, radios, transformaciones, imágenes, recortes, estilos tipográficos y procedencia de activos. Lo responsive se resuelve escogiendo un viewport/mesa de trabajo antes de materializar páginas y spreads.
+- El experimento exitoso será conservado como fixture de referencia junto con el IDML vacío, los insumos, el resultado y las observaciones de apertura/editabilidad en InDesign. Servirá para definir pruebas de regresión del futuro adaptador IDML.
+- Prioridad vigente: terminar primero la variante funcional de Open CoDesign Desktop. El adaptador IDML será un frente posterior y desacoplado, no una condición que retrase el checklist Crear/Editar.
+
+## 2026-08-04 — Validación real del checklist con el proveedor configurado
+
+- Se validó el build contra la configuración efectiva de Open CoDesign sin mostrar, copiar ni hardcodear credenciales. El proveedor activo respondió correctamente desde una copia aislada del perfil criptográfico de Electron; la aplicación estable y su sesión permanecieron intactas.
+- La primera llamada real descubrió una incompatibilidad que los mocks no representaban: el modelo devolvía algunos `value` como escalares y campos opcionales como `null`. El analizador los rechazaba aunque el contenido fuera semánticamente válido.
+- Se añadió normalización determinista: texto → `{text}`, número o booleano → `{value}`, lista → `{items}`; `null` en `locator`, `excerpt` o `appliesTo` se interpreta como dato opcional ausente. Un `value` nulo continúa siendo inválido.
+- Se incorporó diagnóstico estructural seguro para respuestas incompatibles. Los errores identifican rutas y tipos, pero nunca reproducen claves, evidencia privada ni contenido del proveedor.
+- Prueba CREATE real aprobada: 3 variables, 6 gaps y cobertura de las siete áreas obligatorias. Prueba EDIT real aprobada: la solicitud “cambiar únicamente el botón principal” produjo una sola variable delta, cero gaps y procedencia exclusiva del nuevo insumo.
+- Verificaciones posteriores: Core 458/458, Desktop 1.424/1.424, typecheck Core/Desktop, Biome focalizado, build y smoke empaquetado con conexión real aprobados.
+- Build actualizado separado: `apps/desktop/release-edit-mode-live-20260804/open-codesign-0.2.1-x64-setup.exe`, 95.407.092 bytes, SHA-256 `A077A9CA6BDFFF999C2E04DCDB09D9582DC352711D7B6F9B0E3AB30C950BEFAF`. Es un build local sin firma y no reemplaza la instalación estable.

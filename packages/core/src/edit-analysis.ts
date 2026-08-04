@@ -47,13 +47,27 @@ function parseUsage(value: unknown): DesignAnalysisUsage | null {
     : null;
 }
 
+/** Providers commonly serialize a scalar finding even when the requested
+ * contract says `value` is an object. Preserve that semantic value in a
+ * deterministic object wrapper so harmless provider drift does not abort the
+ * complete review. Null remains invalid because it carries no finding. */
+function normalizeVariableValue(value: unknown): Record<string, unknown> | null {
+  if (isRecord(value)) return value;
+  if (typeof value === 'string') return value.trim().length > 0 ? { text: value } : null;
+  if (typeof value === 'number' && Number.isFinite(value)) return { value };
+  if (typeof value === 'boolean') return { value };
+  if (Array.isArray(value)) return { items: value };
+  return null;
+}
+
 function parseVariable(value: unknown, sourceIds: Set<string>): EditContextDefinition | null {
+  const normalizedValue = isRecord(value) ? normalizeVariableValue(value['value']) : null;
   if (
     !isRecord(value) ||
     !nonEmptyString(value['id']) ||
     !nonEmptyString(value['category']) ||
     !nonEmptyString(value['label']) ||
-    !isRecord(value['value']) ||
+    normalizedValue === null ||
     (value['confidence'] !== 'high' &&
       value['confidence'] !== 'medium' &&
       value['confidence'] !== 'low') ||
@@ -68,8 +82,18 @@ function parseVariable(value: unknown, sourceIds: Set<string>): EditContextDefin
   const provenance = value['provenance'].map((item) => {
     if (!isRecord(item) || !nonEmptyString(item['materialId'])) return null;
     if (!sourceIds.has(item['materialId'])) return null;
-    if (item['locator'] !== undefined && typeof item['locator'] !== 'string') return null;
-    if (item['excerpt'] !== undefined && typeof item['excerpt'] !== 'string') return null;
+    if (
+      item['locator'] !== undefined &&
+      item['locator'] !== null &&
+      typeof item['locator'] !== 'string'
+    )
+      return null;
+    if (
+      item['excerpt'] !== undefined &&
+      item['excerpt'] !== null &&
+      typeof item['excerpt'] !== 'string'
+    )
+      return null;
     return {
       materialId: item['materialId'],
       ...(typeof item['locator'] === 'string' ? { locator: item['locator'] } : {}),
@@ -78,14 +102,18 @@ function parseVariable(value: unknown, sourceIds: Set<string>): EditContextDefin
   });
   if (provenance.some((item) => item === null)) return null;
   const appliesTo = value['appliesTo'];
-  if (appliesTo !== undefined && (!Array.isArray(appliesTo) || !appliesTo.every(nonEmptyString)))
+  if (
+    appliesTo !== undefined &&
+    appliesTo !== null &&
+    (!Array.isArray(appliesTo) || !appliesTo.every(nonEmptyString))
+  )
     return null;
   return {
     id: value['id'],
     category: value['category'],
     label: value['label'],
-    value: value['value'],
-    detectedValue: value['value'],
+    value: normalizedValue,
+    detectedValue: normalizedValue,
     resolution: 'preserve',
     authority,
     usage,
@@ -153,6 +181,116 @@ export function parseDesignAnalysis(
   };
 }
 
+/**
+ * Return structural diagnostics without copying provider output or user
+ * evidence into logs. This is intentionally path-only: live providers can
+ * drift from the requested JSON contract, but their response may contain
+ * private source excerpts that must not be surfaced in an error message.
+ */
+export function diagnoseDesignAnalysis(value: unknown, sources: DesignAnalysisSource[]): string[] {
+  if (!isRecord(value)) return ['root:not-object'];
+  const issues: string[] = [];
+  if (value['schemaVersion'] !== 1) issues.push('schemaVersion:not-1');
+  if (!nonEmptyString(value['summary'])) issues.push('summary:missing');
+  const sourceIds = new Set(sources.map((source) => source.id));
+  if (sourceIds.size !== sources.length) issues.push('sources:duplicate-id');
+
+  const variables = value['variables'];
+  if (!Array.isArray(variables)) {
+    issues.push('variables:not-array');
+  } else {
+    const ids: string[] = [];
+    variables.forEach((variable, index) => {
+      const path = `variables[${index}]`;
+      if (!isRecord(variable)) {
+        issues.push(`${path}:not-object`);
+        return;
+      }
+      if (!nonEmptyString(variable['id'])) issues.push(`${path}.id:missing`);
+      else ids.push(variable['id']);
+      if (!nonEmptyString(variable['category'])) issues.push(`${path}.category:missing`);
+      if (!nonEmptyString(variable['label'])) issues.push(`${path}.label:missing`);
+      if (normalizeVariableValue(variable['value']) === null) issues.push(`${path}.value:invalid`);
+      if (parseAuthority(variable['authority']) === null) issues.push(`${path}.authority:invalid`);
+      if (parseUsage(variable['usage']) === null) issues.push(`${path}.usage:invalid`);
+      if (
+        variable['confidence'] !== 'high' &&
+        variable['confidence'] !== 'medium' &&
+        variable['confidence'] !== 'low'
+      )
+        issues.push(`${path}.confidence:invalid`);
+      if (!nonEmptyString(variable['evidence'])) issues.push(`${path}.evidence:missing`);
+      const provenance = variable['provenance'];
+      if (!Array.isArray(provenance) || provenance.length === 0) {
+        issues.push(`${path}.provenance:missing`);
+      } else {
+        provenance.forEach((item, provenanceIndex) => {
+          const provenancePath = `${path}.provenance[${provenanceIndex}]`;
+          if (!isRecord(item) || !nonEmptyString(item['materialId'])) {
+            issues.push(`${provenancePath}.materialId:missing`);
+          } else if (!sourceIds.has(item['materialId'])) {
+            issues.push(`${provenancePath}.materialId:unknown`);
+          }
+          if (
+            isRecord(item) &&
+            item['locator'] !== undefined &&
+            item['locator'] !== null &&
+            typeof item['locator'] !== 'string'
+          )
+            issues.push(`${provenancePath}.locator:invalid`);
+          if (
+            isRecord(item) &&
+            item['excerpt'] !== undefined &&
+            item['excerpt'] !== null &&
+            typeof item['excerpt'] !== 'string'
+          )
+            issues.push(`${provenancePath}.excerpt:invalid`);
+        });
+      }
+      if (
+        variable['appliesTo'] !== undefined &&
+        variable['appliesTo'] !== null &&
+        (!Array.isArray(variable['appliesTo']) || !variable['appliesTo'].every(nonEmptyString))
+      )
+        issues.push(`${path}.appliesTo:invalid`);
+    });
+    if (new Set(ids).size !== ids.length) issues.push('variables:duplicate-id');
+  }
+
+  for (const field of ['conflicts', 'gaps'] as const) {
+    if (!Array.isArray(value[field])) issues.push(`${field}:not-array`);
+  }
+  if (Array.isArray(value['conflicts'])) {
+    value['conflicts'].forEach((conflict, index) => {
+      if (!isRecord(conflict)) {
+        issues.push(`conflicts[${index}]:not-object`);
+        return;
+      }
+      if (!Array.isArray(conflict['variableIds']) || !conflict['variableIds'].every(nonEmptyString))
+        issues.push(`conflicts[${index}].variableIds:invalid`);
+      if (!nonEmptyString(conflict['description']))
+        issues.push(`conflicts[${index}].description:missing`);
+      if (
+        !Array.isArray(conflict['sourceIds']) ||
+        !conflict['sourceIds'].every((id) => nonEmptyString(id) && sourceIds.has(id))
+      )
+        issues.push(`conflicts[${index}].sourceIds:invalid`);
+    });
+  }
+  if (Array.isArray(value['gaps'])) {
+    value['gaps'].forEach((gap, index) => {
+      if (!isRecord(gap)) {
+        issues.push(`gaps[${index}]:not-object`);
+        return;
+      }
+      if (!nonEmptyString(gap['category'])) issues.push(`gaps[${index}].category:missing`);
+      if (!nonEmptyString(gap['label'])) issues.push(`gaps[${index}].label:missing`);
+      if (!nonEmptyString(gap['reason'])) issues.push(`gaps[${index}].reason:missing`);
+    });
+  }
+  return issues.length > 0 ? issues : ['unknown-contract-mismatch'];
+}
+
 export const DESIGN_ANALYSIS_SYSTEM_PROMPT = `You are the evidence-analysis stage of a design system.
 Analyze the supplied project materials with genuine semantic and visual reasoning. Discover design traits; do not return a fixed checklist and do not invent absent values.
 
@@ -165,6 +303,8 @@ Separate each finding's authority:
 - unknown: authority cannot be determined
 
 Set usage to approved, confirm-before-use, or private. Preserve uncertainty, contradictions, source provenance, and deliverable scope. A proposal must never become confirmed. Private material must never become publishable.
+
+The value field MUST always be a JSON object. Wrap a simple textual finding as {"text":"..."}, a number or boolean as {"value":...}, and a list as {"items":[...]}. Never return a scalar or null in value.
 
 Return JSON only with this shape:
 {"schemaVersion":1,"summary":"...","variables":[{"id":"stable-kebab-id","category":"...","label":"...","value":{},"authority":"confirmed|proposal|inferred|fact|restriction|unknown","usage":"approved|confirm-before-use|private","confidence":"high|medium|low","evidence":"short explanation","provenance":[{"materialId":"source-id","locator":"optional page/section/region","excerpt":"optional short quote or visual description"}],"appliesTo":["optional deliverable"]}],"conflicts":[{"variableIds":["..."],"description":"...","sourceIds":["..."]}],"gaps":[{"category":"...","label":"...","reason":"..."}]}`;
