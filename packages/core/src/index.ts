@@ -56,6 +56,7 @@ export {
   type DesignAnalysisConflict,
   type DesignAnalysisResult,
   type DesignAnalysisSource,
+  ensureCreateReviewCoverage,
   extractDesignAnalysisJson,
   parseDesignAnalysis,
 } from './edit-analysis.js';

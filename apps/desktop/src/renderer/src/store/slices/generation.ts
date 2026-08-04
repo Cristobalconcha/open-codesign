@@ -802,6 +802,7 @@ export function makeGenerationSlice(set: SetState, get: GetState): GenerationSli
           request,
           chatRows.map((row) => row.kind),
           activeDesign.workspacePath,
+          get().previewSource !== null,
         );
         if (review !== null) {
           await get().openContextReview(review);

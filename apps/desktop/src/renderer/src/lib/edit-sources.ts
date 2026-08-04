@@ -24,6 +24,20 @@ export interface EditDecision {
   override: string;
 }
 
+export interface EditAnalysisGap {
+  category: string;
+  label: string;
+  reason: string;
+}
+
+export function defaultEditResolution(
+  definition: EditContextDefinition,
+): EditDecision['resolution'] {
+  return definition.authority === 'proposal' || definition.authority === 'unknown'
+    ? 'open'
+    : 'preserve';
+}
+
 const IMAGE_MEDIA_TYPES = new Map([
   ['.avif', 'image/avif'],
   ['.bmp', 'image/bmp'],
@@ -174,6 +188,7 @@ export function buildEditContextV2(
   sources: EditSource[],
   detected: EditContextDefinition[],
   decisions: Record<string, EditDecision | undefined>,
+  gaps: EditAnalysisGap[] = [],
 ): { ok: true; editContext: EditContext } | { ok: false; error: string } {
   if (sources.length === 0) return { ok: false, error: 'Add at least one source.' };
   const active: string[] = [];
@@ -182,7 +197,10 @@ export function buildEditContextV2(
 
   for (const definition of detected) {
     // An untouched finding is preserved; only an explicit action changes that.
-    const decision = decisions[definition.id] ?? { resolution: 'preserve', override: '' };
+    const decision = decisions[definition.id] ?? {
+      resolution: defaultEditResolution(definition),
+      override: '',
+    };
     if (decision.resolution === 'open') {
       open.push(definition.id);
       resolved.push({ ...definition, resolution: 'open' });
@@ -223,6 +241,36 @@ export function buildEditContextV2(
         { materialId: 'user', excerpt: 'Replacement value supplied by the user' },
       ],
     });
+  }
+
+  const firstMaterialId = sources[0]?.id;
+  if (firstMaterialId !== undefined) {
+    const usedIds = new Set(resolved.map((definition) => definition.id));
+    for (const gap of gaps) {
+      const base =
+        `open-${gap.category}`
+          .toLowerCase()
+          .replace(/[^a-z0-9_-]+/g, '-')
+          .replace(/^-+|-+$/g, '') || 'open-decision';
+      let id = base;
+      for (let suffix = 2; usedIds.has(id); suffix += 1) id = `${base}-${suffix}`;
+      usedIds.add(id);
+      open.push(id);
+      resolved.push({
+        id,
+        category: gap.category,
+        label: gap.label,
+        value: { status: 'unspecified' },
+        detectedValue: { status: 'unspecified' },
+        resolution: 'open',
+        authority: 'unknown',
+        usage: 'confirm-before-use',
+        confidence: 'low',
+        source: 'ai-analysis-gap',
+        evidence: gap.reason,
+        provenance: [{ materialId: firstMaterialId }],
+      });
+    }
   }
 
   return {

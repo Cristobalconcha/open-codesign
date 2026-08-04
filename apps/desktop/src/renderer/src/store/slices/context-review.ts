@@ -1,6 +1,7 @@
-import type { EditContextDefinition } from '@open-codesign/core';
+import type { EditContext, EditContextDefinition } from '@open-codesign/core';
 import {
   buildCreateReviewSources,
+  type ContextReviewMode,
   type CreateReviewLabels,
   type CreateReviewRequest,
   requiresContextReview,
@@ -28,6 +29,12 @@ export interface ContextReviewState {
   sources: EditSource[];
   /** Inputs that could not become evidence sources, surfaced to the user. */
   notes: string[];
+  /** CREATE runs the full checklist; EDIT runs a delta review against
+   *  `currentContext`. See `requiresContextReview` for how this is decided. */
+  mode: ContextReviewMode;
+  /** Previously confirmed context for an EDIT review, or null when there is
+   *  none yet (still EDIT if a turn already delivered without one). */
+  currentContext: EditContext | null;
   status: ContextReviewStatus;
   summary: string | null;
   detected: EditContextDefinition[];
@@ -48,21 +55,28 @@ export function reviewLabels(): CreateReviewLabels {
 }
 
 /**
- * Decide whether a CREATE request must pass the evidence review before it
- * generates. Returns the initial review state, or null to generate straight
- * away. A host without the edit-mode IPC cannot prove a context exists, so it
- * keeps the pre-existing immediate-send behaviour.
+ * Decide whether the current composer request must pass evidence review
+ * before it generates. Every explicit, non-silent request does — this only
+ * picks CREATE (full checklist) or EDIT (delta against `currentContext`).
+ * Returns the initial review state, or null when there is nothing to review
+ * (no host edit-mode IPC, or an empty request). See `requiresContextReview`
+ * for the create/edit decision.
  */
 export async function evaluateContextReview(
   designId: string,
   request: CreateReviewRequest,
   chatKinds: CodesignState['chatMessages'][number]['kind'][],
   workspacePath: string,
+  hasExistingSource: boolean,
 ): Promise<ContextReviewState | null> {
   const readContext = window.codesign?.editMode?.readContext;
   if (readContext === undefined) return null;
   const existing = await readContext(designId);
-  if (!requiresContextReview({ hasEditContext: existing !== null, chatKinds })) return null;
+  const mode = requiresContextReview({
+    hasEditContext: existing !== null,
+    hasExistingSource,
+    chatKinds,
+  });
   // Reserve ids already persisted from an earlier round so this round's
   // sources cannot collide with them once the main process merges contexts.
   const reservedSourceIds =
@@ -81,6 +95,8 @@ export async function evaluateContextReview(
     request,
     sources,
     notes,
+    mode,
+    currentContext: mode === 'edit' ? existing : null,
     status: 'analyzing',
     summary: null,
     detected: [],
@@ -108,6 +124,10 @@ async function runContextAnalysis(get: GetState, set: SetState): Promise<void> {
       analysisId: newId(),
       model: modelRef(cfg.provider, cfg.modelPrimary),
       sources: toAnalysisSources(review.sources),
+      reviewMode: review.mode,
+      ...(review.currentContext !== null
+        ? { currentContextJson: JSON.stringify(review.currentContext) }
+        : {}),
     });
     patchReview(get, set, review.designId, {
       status: 'review',
@@ -205,7 +225,12 @@ export function makeContextReviewSlice(set: SetState, get: GetState): ContextRev
         });
         return;
       }
-      const built = buildEditContextV2(review.sources, review.detected, review.decisions);
+      const built = buildEditContextV2(
+        review.sources,
+        review.detected,
+        review.decisions,
+        review.gaps,
+      );
       if (!built.ok) {
         patchReview(get, set, review.designId, { status: 'error', error: built.error });
         return;

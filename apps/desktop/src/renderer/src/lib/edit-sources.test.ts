@@ -131,7 +131,9 @@ describe('buildEditContextV2', () => {
   });
 
   it('records final checklist confirmation while preserving private usage', () => {
-    const built = buildEditContextV2(sources, [definition({})], {});
+    const built = buildEditContextV2(sources, [definition({})], {
+      'hero-typeface': { resolution: 'preserve', override: '' },
+    });
     if (!built.ok) throw new Error(built.error);
     expect(built.editContext.active).toEqual(['hero-typeface']);
     expect(built.editContext.open).toEqual([]);
@@ -144,6 +146,35 @@ describe('buildEditContextV2', () => {
       materialId: 'user',
     });
     expect(built.editContext.detected[0]).not.toHaveProperty('overrideValue');
+  });
+
+  it('keeps an untouched proposal open instead of silently confirming it', () => {
+    const built = buildEditContextV2(sources, [definition({})], {});
+    if (!built.ok) throw new Error(built.error);
+
+    expect(built.editContext.active).toEqual([]);
+    expect(built.editContext.open).toEqual(['hero-typeface']);
+    expect(built.editContext.detected[0]).toMatchObject({
+      resolution: 'open',
+      authority: 'proposal',
+      usage: 'private',
+    });
+  });
+
+  it('persists analyzer gaps as open decisions for the generation agent', () => {
+    const built = buildEditContextV2(sources, [], {}, [
+      { category: 'behavior', label: 'Animations', reason: 'No motion rule was supplied.' },
+    ]);
+    if (!built.ok) throw new Error(built.error);
+
+    expect(built.editContext.open).toEqual(['open-behavior']);
+    expect(built.editContext.detected[0]).toMatchObject({
+      id: 'open-behavior',
+      resolution: 'open',
+      authority: 'unknown',
+      value: { status: 'unspecified' },
+      evidence: 'No motion rule was supplied.',
+    });
   });
 
   it('records explicit open and replace decisions with user provenance', () => {

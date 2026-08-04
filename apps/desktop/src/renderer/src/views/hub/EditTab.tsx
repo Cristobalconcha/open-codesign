@@ -11,6 +11,7 @@ import {
 import {
   buildEditContextV2,
   classifyEditSourceFile,
+  defaultEditResolution,
   type EditDecision,
   type EditSource,
   MAX_EDIT_SOURCE_TEXT_CHARS,
@@ -280,7 +281,7 @@ export function EditTab() {
       setError('The edit mode workspace service is unavailable.');
       return;
     }
-    const built = buildEditContextV2(sources, detected, decisions);
+    const built = buildEditContextV2(sources, detected, decisions, analysis?.gaps ?? []);
     if (!built.ok) {
       setError(built.error);
       return;
@@ -319,6 +320,7 @@ export function EditTab() {
     sources,
     detected,
     decisions,
+    analysis,
     createNewDesign,
     softDeleteDesign,
     setView,
@@ -326,7 +328,8 @@ export function EditTab() {
 
   const busy = analyzing || creating;
   const activeCount = detected.filter(
-    (definition) => (decisions[definition.id]?.resolution ?? 'preserve') !== 'open',
+    (definition) =>
+      (decisions[definition.id]?.resolution ?? defaultEditResolution(definition)) !== 'open',
   ).length;
 
   return (

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildDesignAnalysisUserPrompt,
   type DesignAnalysisSource,
+  ensureCreateReviewCoverage,
   extractDesignAnalysisJson,
   parseDesignAnalysis,
 } from './edit-analysis.js';
@@ -95,5 +96,81 @@ describe('design analysis contract', () => {
     expect(extractDesignAnalysisJson(`\n\`\`\`json\n${JSON.stringify(result())}\n\`\`\``)).toEqual(
       result(),
     );
+  });
+
+  it('demands coverage across all seven CREATE areas and gaps for absences, by default', () => {
+    const prompt = buildDesignAnalysisUserPrompt(sources);
+    for (const area of [
+      'goal',
+      'structure',
+      'content',
+      'visual system',
+      'behavior',
+      'assets and placeholders',
+      'references',
+    ]) {
+      expect(prompt).toContain(area);
+    }
+    expect(prompt.toLowerCase()).toContain('gap');
+    expect(prompt).not.toContain('EDIT delta review');
+  });
+
+  it('adds deterministic gaps when a CREATE provider omits checklist areas', () => {
+    const parsed = parseDesignAnalysis(result(), sources);
+    if (parsed === null) throw new Error('Expected valid analysis fixture');
+
+    const covered = ensureCreateReviewCoverage(parsed, 'create');
+
+    expect(covered.gaps).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ category: 'goal' }),
+        expect.objectContaining({ category: 'structure' }),
+        expect.objectContaining({ category: 'behavior' }),
+        expect.objectContaining({ category: 'references' }),
+      ]),
+    );
+    expect(ensureCreateReviewCoverage(parsed, 'edit')).toBe(parsed);
+  });
+
+  it('asks an EDIT review for only the delta, with silence meaning preserve', () => {
+    const currentContext = {
+      schemaVersion: 2 as const,
+      materials: [
+        { id: 'descriptor', path: 'references/descriptor.md', type: 'text/plain', role: 'text' },
+      ],
+      detected: [
+        {
+          id: 'brand-primary-color',
+          category: 'color',
+          label: 'Primary brand color',
+          value: { token: 'oliva-500' },
+          resolution: 'preserve' as const,
+          authority: 'confirmed' as const,
+          usage: 'approved' as const,
+          confidence: 'high' as const,
+          source: 'ai-analysis',
+        },
+      ],
+      active: ['brand-primary-color'],
+      open: [],
+      generatedAt: '2026-08-01T00:00:00.000Z',
+    };
+    const prompt = buildDesignAnalysisUserPrompt(sources, {
+      reviewMode: 'edit',
+      currentContext,
+    });
+    expect(prompt).toContain('EDIT delta review');
+    expect(prompt.toLowerCase()).toContain('silence means preserve');
+    expect(prompt).toContain('oliva-500');
+    expect(prompt).not.toContain('all seven areas');
+  });
+
+  it('falls back to an empty confirmed context when an EDIT review has none yet', () => {
+    const prompt = buildDesignAnalysisUserPrompt(sources, {
+      reviewMode: 'edit',
+      currentContext: null,
+    });
+    expect(prompt).toContain('EDIT delta review');
+    expect(prompt).toContain('"definitions":[]');
   });
 });

@@ -308,7 +308,11 @@ describe('CREATE evidence review gate', () => {
     usage: { inputTokens: 10, outputTokens: 5, costUsd: 0.001 },
   };
 
-  function reviewHost(options?: { rows?: ChatMessageRow[]; persistError?: Error }) {
+  function reviewHost(options?: {
+    rows?: ChatMessageRow[];
+    persistError?: Error;
+    existingContext?: unknown;
+  }) {
     const calls: string[] = [];
     const chat = {
       ...mockChatApi(),
@@ -319,24 +323,27 @@ describe('CREATE evidence review gate', () => {
       return { artifacts: [{ content: '<html></html>' }], message: 'Done.' };
     });
     const analyze = vi.fn(async () => analysisResponse);
-    const initWorkspaceSources = vi.fn(async () => {
+    const initWorkspaceSources = vi.fn(async (_input: { designId: string }) => {
       calls.push('persist');
       if (options?.persistError) throw options.persistError;
       return { sourcePaths: { prompt: '.codesign/sources/prompt.txt' } };
+    });
+    const createDesign = vi.fn(async () => {
+      throw new Error('createDesign must not be called by the edit-review confirm flow');
     });
     vi.stubGlobal('window', {
       codesign: {
         generate,
         chat,
-        snapshots: mockSnapshotsApi(),
+        snapshots: { ...mockSnapshotsApi(), createDesign },
         editMode: {
-          readContext: vi.fn(async () => null),
+          readContext: vi.fn(async () => options?.existingContext ?? null),
           analyze,
           initWorkspaceSources,
         },
       },
     });
-    return { calls, generate, analyze, initWorkspaceSources };
+    return { calls, generate, analyze, initWorkspaceSources, createDesign };
   }
 
   it('analyzes the first prompt and stops before generation', async () => {
@@ -403,7 +410,7 @@ describe('CREATE evidence review gate', () => {
     });
   });
 
-  it('does not intercept an ordinary follow-up turn', async () => {
+  it('opens an EDIT delta review for a follow-up turn, even without a persisted context', async () => {
     const host = reviewHost({
       rows: [
         {
@@ -422,9 +429,108 @@ describe('CREATE evidence review gate', () => {
 
     await useCodesignStore.getState().sendPrompt({ prompt: 'Make the second card wider.' });
 
+    expect(host.analyze).toHaveBeenCalledOnce();
+    expect(host.analyze).toHaveBeenCalledWith(expect.objectContaining({ reviewMode: 'edit' }));
+    expect(host.generate).not.toHaveBeenCalled();
+    expect(useCodesignStore.getState().contextReview).toMatchObject({
+      mode: 'edit',
+      status: 'review',
+    });
+  });
+
+  it('opens an EDIT review when a context already exists, persists onto the same design, then resumes generation', async () => {
+    const existingContext = {
+      schemaVersion: 2,
+      materials: [
+        { id: 'prompt', path: '.codesign/sources/prompt.txt', type: 'text/plain', role: 'text' },
+      ],
+      detected: [
+        {
+          id: 'palette',
+          category: 'color',
+          label: 'Earth palette',
+          value: { primary: '#a7641a' },
+          resolution: 'preserve',
+          authority: 'confirmed',
+          usage: 'approved',
+          confidence: 'high',
+          source: 'ai-analysis',
+          provenance: [{ materialId: 'prompt' }],
+        },
+      ],
+      active: ['palette'],
+      open: [],
+      generatedAt: '2026-08-01T00:00:00.000Z',
+    };
+    const host = reviewHost({ existingContext });
+    setWorkspaceBackedDesign();
+
+    await useCodesignStore.getState().sendPrompt({ prompt: 'Swap the hero image.' });
+
+    expect(host.analyze).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reviewMode: 'edit',
+        currentContextJson: JSON.stringify(existingContext),
+      }),
+    );
+    expect(useCodesignStore.getState().contextReview).toMatchObject({
+      mode: 'edit',
+      status: 'review',
+    });
+
+    await useCodesignStore.getState().confirmContextReview();
+
+    expect(host.calls).toEqual(['persist', 'generate']);
+    expect(host.initWorkspaceSources).toHaveBeenCalledWith(
+      expect.objectContaining({ designId: DEFAULT_DESIGN.id }),
+    );
+    expect(host.createDesign).not.toHaveBeenCalled();
+    expect(host.generate).toHaveBeenCalledWith(
+      expect.objectContaining({ designId: DEFAULT_DESIGN.id }),
+    );
+    expect(useCodesignStore.getState().currentDesignId).toBe(DEFAULT_DESIGN.id);
+    expect(useCodesignStore.getState().contextReview).toBeNull();
+  });
+
+  it('treats a bound workspace with existing preview source as EDIT before it has history', async () => {
+    const host = reviewHost();
+    setWorkspaceBackedDesign();
+    useCodesignStore.setState({ previewSource: '<main>Existing project</main>' });
+
+    await useCodesignStore.getState().sendPrompt({ prompt: 'Add a contact section.' });
+
+    expect(host.analyze).toHaveBeenCalledWith(expect.objectContaining({ reviewMode: 'edit' }));
+    expect(useCodesignStore.getState().contextReview).toMatchObject({
+      mode: 'edit',
+      status: 'review',
+    });
+  });
+
+  it('does not open a review for a silent prompt, on a design with no context or delivered turn', async () => {
+    const host = reviewHost();
+    setWorkspaceBackedDesign();
+
+    await useCodesignStore
+      .getState()
+      .sendPrompt({ prompt: 'Apply the pending changes.', silent: true });
+
     expect(host.analyze).not.toHaveBeenCalled();
     expect(host.generate).toHaveBeenCalledOnce();
     expect(useCodesignStore.getState().contextReview).toBeNull();
+  });
+
+  it('regression: the first creation still passes through CREATE review', async () => {
+    const host = reviewHost();
+    setWorkspaceBackedDesign();
+
+    await useCodesignStore.getState().sendPrompt({ prompt: 'Create a rural landing page.' });
+
+    expect(host.analyze).toHaveBeenCalledWith(expect.objectContaining({ reviewMode: 'create' }));
+    expect(host.generate).not.toHaveBeenCalled();
+    expect(useCodesignStore.getState().contextReview).toMatchObject({
+      mode: 'create',
+      status: 'review',
+    });
   });
 });
 

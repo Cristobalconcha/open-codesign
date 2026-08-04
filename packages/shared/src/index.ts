@@ -194,12 +194,23 @@ export const EditAnalysisSourceInput = z.discriminatedUnion('kind', [
 ]);
 export type EditAnalysisSourceInput = z.infer<typeof EditAnalysisSourceInput>;
 
+export const EditAnalysisReviewMode = z.enum(['create', 'edit']);
+export type EditAnalysisReviewMode = z.infer<typeof EditAnalysisReviewMode>;
+
 export const EditAnalysisPayloadV1 = z
   .object({
     schemaVersion: z.literal(1),
     analysisId: GenerationId,
     model: ModelRef,
     sources: z.array(EditAnalysisSourceInput).min(1).max(20),
+    /** Which review the analyzer should run. Defaults to 'create' when absent
+     *  so older callers keep the full-checklist behavior. */
+    reviewMode: EditAnalysisReviewMode.optional(),
+    /** Bounded JSON serialization of the design's previously confirmed
+     *  EditContext (schemaVersion 2), sent only as evidence for an 'edit'
+     *  review. The main process re-parses this with `parseEditContext` before
+     *  use — it is never trusted as-is or inserted raw into a prompt. */
+    currentContextJson: z.string().max(200_000).optional(),
   })
   .strict()
   .superRefine((value, ctx) => {

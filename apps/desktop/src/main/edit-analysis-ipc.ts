@@ -3,8 +3,11 @@ import {
   DESIGN_ANALYSIS_SYSTEM_PROMPT,
   type DesignAnalysisResult,
   type DesignAnalysisSource,
+  type EditContext,
+  ensureCreateReviewCoverage,
   extractDesignAnalysisJson,
   parseDesignAnalysis,
+  parseEditContext,
 } from '@open-codesign/core';
 import { complete } from '@open-codesign/providers';
 import {
@@ -134,6 +137,23 @@ export async function acquireEditAnalysisSources(
   return { sources, images };
 }
 
+/**
+ * Re-parse a renderer-supplied context JSON string with `parseEditContext`
+ * instead of trusting it. Anything unparsable — malformed JSON, a schema
+ * mismatch, a forged shape — reads as "no context" rather than being inserted
+ * raw into the analyzer prompt.
+ */
+function parseCurrentContext(raw: string | undefined): EditContext | null {
+  if (raw === undefined) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  return parseEditContext(parsed);
+}
+
 export async function runEditAnalysis(
   raw: unknown,
   deps: RunEditAnalysisDeps,
@@ -142,6 +162,7 @@ export async function runEditAnalysis(
   const active = resolveActiveModel(deps.config, payload.model);
   const credential = await deps.resolveCredential(active.model.provider, active.allowKeyless);
   const acquired = await deps.acquireSources(payload.sources);
+  const currentContext = parseCurrentContext(payload.currentContextJson);
   const completion = await deps.completeAnalysis({
     model: active.model,
     apiKey: credential,
@@ -151,7 +172,10 @@ export async function runEditAnalysis(
     allowKeyless: active.allowKeyless,
     ...(active.reasoningLevel !== undefined ? { reasoning: active.reasoningLevel } : {}),
     systemPrompt: DESIGN_ANALYSIS_SYSTEM_PROMPT,
-    userText: buildDesignAnalysisUserPrompt(acquired.sources),
+    userText: buildDesignAnalysisUserPrompt(acquired.sources, {
+      ...(payload.reviewMode !== undefined ? { reviewMode: payload.reviewMode } : {}),
+      currentContext,
+    }),
     userImages: acquired.images,
   });
   let parsedJson: unknown;
@@ -162,13 +186,17 @@ export async function runEditAnalysis(
       cause: error,
     });
   }
-  const analysis = parseDesignAnalysis(parsedJson, acquired.sources);
-  if (analysis === null) {
+  const parsedAnalysis = parseDesignAnalysis(parsedJson, acquired.sources);
+  if (parsedAnalysis === null) {
     throw new CodesignError(
       'Design analyzer returned data that does not match the evidence schema',
       ERROR_CODES.PROVIDER_ERROR,
     );
   }
+  const analysis = ensureCreateReviewCoverage(
+    parsedAnalysis,
+    payload.reviewMode === 'edit' ? 'edit' : 'create',
+  );
   return {
     analysis,
     model: active.model,

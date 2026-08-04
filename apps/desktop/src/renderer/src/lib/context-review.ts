@@ -140,19 +140,26 @@ export function buildCreateReviewSources(
   return { sources, notes };
 }
 
+export type ContextReviewMode = 'create' | 'edit';
+
 /**
- * A design needs the pre-generation review only until it has produced
- * something. `assistant_text`, `tool_call`, and `artifact_delivered` rows all
- * mean a turn already ran, so ordinary follow-up chat stays immediate. A bare
- * `user` row does not count: a first generation that failed before delivering
- * anything must still be reviewed on retry.
+ * Every explicit, non-silent composer request passes through review before
+ * generating — this only decides which mode. CREATE is the full checklist and
+ * applies only while the design has no confirmed context AND has not yet
+ * delivered a turn. `assistant_text`, `tool_call`, and `artifact_delivered`
+ * rows all mean a turn already ran; a bare `user` row does not count, so a
+ * first generation that failed before delivering anything is still CREATE on
+ * retry. Every other case — an existing context, or a prior delivered turn
+ * even without one — is an EDIT delta review against what's already confirmed.
  */
 export function requiresContextReview(input: {
   hasEditContext: boolean;
+  hasExistingSource?: boolean;
   chatKinds: ChatMessageKind[];
-}): boolean {
-  if (input.hasEditContext) return false;
-  return !input.chatKinds.some(
+}): ContextReviewMode {
+  if (input.hasEditContext || input.hasExistingSource === true) return 'edit';
+  const hasDelivered = input.chatKinds.some(
     (kind) => kind === 'assistant_text' || kind === 'tool_call' || kind === 'artifact_delivered',
   );
+  return hasDelivered ? 'edit' : 'create';
 }

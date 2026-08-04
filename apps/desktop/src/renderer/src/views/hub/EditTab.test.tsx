@@ -227,7 +227,7 @@ describe('EditTab multisource flow', () => {
     ]);
     expect(payload.editContext.materials.every((material) => material.path.startsWith('pending/')));
     expect(payload.editContext.active).toEqual(['hero-typeface', 'accent-color']);
-    expect(payload.editContext.open).toEqual(['sales-data']);
+    expect(payload.editContext.open).toEqual(['sales-data', 'open-imagery']);
     expect(payload.editContext.detected).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -250,6 +250,12 @@ describe('EditTab multisource flow', () => {
           usage: 'approved',
           value: { hex: '#7a8b3f' },
           overrideValue: { hex: '#123456' },
+        }),
+        expect.objectContaining({
+          id: 'open-imagery',
+          resolution: 'open',
+          authority: 'unknown',
+          value: { status: 'unspecified' },
         }),
       ]),
     );

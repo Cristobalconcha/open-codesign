@@ -67,14 +67,35 @@ describe('CREATE context review helpers', () => {
     expect(result.sources[1]).toMatchObject({ kind: 'document', id: 'source-2' });
   });
 
-  it('requires review until a valid context or a delivered turn exists', () => {
-    expect(requiresContextReview({ hasEditContext: false, chatKinds: [] })).toBe(true);
+  it('is CREATE only while there is no context and no delivered turn yet', () => {
+    expect(requiresContextReview({ hasEditContext: false, chatKinds: [] })).toBe('create');
     expect(requiresContextReview({ hasEditContext: false, chatKinds: ['user', 'error'] })).toBe(
-      true,
+      'create',
     );
+  });
+
+  it('is EDIT once a turn has delivered, even without a persisted context', () => {
     expect(requiresContextReview({ hasEditContext: false, chatKinds: ['assistant_text'] })).toBe(
-      false,
+      'edit',
     );
-    expect(requiresContextReview({ hasEditContext: true, chatKinds: [] })).toBe(false);
+    expect(requiresContextReview({ hasEditContext: false, chatKinds: ['tool_call'] })).toBe('edit');
+    expect(
+      requiresContextReview({ hasEditContext: false, chatKinds: ['artifact_delivered'] }),
+    ).toBe('edit');
+  });
+
+  it('is EDIT whenever a context already exists, regardless of chat history', () => {
+    expect(requiresContextReview({ hasEditContext: true, chatKinds: [] })).toBe('edit');
+    expect(requiresContextReview({ hasEditContext: true, chatKinds: ['user'] })).toBe('edit');
+  });
+
+  it('is EDIT for an imported workspace that already has source but no chat or context', () => {
+    expect(
+      requiresContextReview({
+        hasEditContext: false,
+        hasExistingSource: true,
+        chatKinds: [],
+      }),
+    ).toBe('edit');
   });
 });

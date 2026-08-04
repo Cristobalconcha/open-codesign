@@ -1,5 +1,5 @@
 import type { EditContextDefinition } from '@open-codesign/core';
-import type { EditDecision } from '../../lib/edit-sources';
+import { defaultEditResolution, type EditDecision } from '../../lib/edit-sources';
 
 /**
  * Decision list shared by the Edit-mode tab and the Create pre-generation
@@ -60,7 +60,7 @@ export function ContextReviewList({
   return (
     <>
       {detected.map((definition) => {
-        const decision = decisions[definition.id]?.resolution ?? 'preserve';
+        const decision = decisions[definition.id]?.resolution ?? defaultEditResolution(definition);
         return (
           <div
             key={definition.id}
