@@ -495,3 +495,28 @@ No registrar secretos, tokens, claves, contenido sensible de configuración ni d
 - Prueba CREATE real aprobada: 3 variables, 6 gaps y cobertura de las siete áreas obligatorias. Prueba EDIT real aprobada: la solicitud “cambiar únicamente el botón principal” produjo una sola variable delta, cero gaps y procedencia exclusiva del nuevo insumo.
 - Verificaciones posteriores: Core 458/458, Desktop 1.424/1.424, typecheck Core/Desktop, Biome focalizado, build y smoke empaquetado con conexión real aprobados.
 - Build actualizado separado: `apps/desktop/release-edit-mode-live-20260804/open-codesign-0.2.1-x64-setup.exe`, 95.407.092 bytes, SHA-256 `A077A9CA6BDFFF999C2E04DCDB09D9582DC352711D7B6F9B0E3AB30C950BEFAF`. Es un build local sin firma y no reemplaza la instalación estable.
+
+## 2026-08-04 — Atajo editorial validable mediante PDF editable en InDesign
+
+- Se confirmó que Open CoDesign ya exporta PDF y que InDesign 2026 incorpora `Archivo > Abrir PDF`, una conversión a documento editable distinta de la colocación tradicional del PDF como imagen enlazada.
+- Adobe declara compatibilidad con PDFs de múltiples fuentes, reconstrucción de texto y layout, tablas, hipervínculos, colores planos, gradientes y creación de estilos de párrafo/carácter bajo ciertos límites. Requiere conexión a Internet, sesión Adobe activa y disponibilidad local de las fuentes para obtener mejores resultados.
+- La primera ruta editorial pasa a ser `OCD → PDF → Abrir PDF en InDesign → revisión/ajuste → INDD/IDML`. Esto permite probar el mundo impreso inmediatamente y reduce la urgencia de construir un escritor IDML completo.
+- El adaptador IDML sigue siendo valioso posteriormente para obtener resultados deterministas, estilos y procedencia controlados, trabajo por lotes y menor dependencia de una conversión remota de Adobe.
+- El siguiente experimento debe usar un PDF real exportado por OCD y evaluar: fidelidad visual, editabilidad de textos y cajas, agrupación, tipografías, imágenes, páginas, colores, efectos y tiempo de corrección manual. También debe comprobar tamaño de página, sangrado, resolución y preparación de color, aspectos que un PDF de previsualización web puede no resolver por sí solo.
+
+## 2026-08-04 — Conversión OCD PDF→InDesign descartada como ruta principal
+
+- La prueba humana se ejecutó inmediatamente y fracasó: el documento reconstruido tuvo muy baja calidad, InDesign se colgó durante el proceso y, al reiniciarse, sólo recuperó un archivo temporal truncado.
+- El resultado confirma que la editabilidad prometida por el importador no equivale a recuperar una estructura editorial fiable desde el PDF producido actualmente por OCD. PDF conserva apariencia final, pero pierde o fragmenta relaciones de autoría como stories, marcos enlazados, estilos, jerarquías, masters, agrupaciones y procedencia de activos.
+- `OCD → PDF → InDesign` queda únicamente como salida final o recurso de referencia visual, no como puente editable de producción. No se considerará un criterio de éxito aunque una conversión aislada llegue a abrir.
+- IDML nativo vuelve a ser el destino editorial prioritario. El experimento exitoso de ChatGPT con una plantilla IDML vacía es una señal más sólida: debemos construir desde una plantilla y datos estructurados, o desde una escena intermedia normalizada, sin pedirle a InDesign que deduzca la estructura desde un PDF final.
+- Antes de nuevas pruebas se deben conservar el PDF problemático y el temporal truncado como fixtures negativos, si es posible recuperarlos sin volver a abrirlos en InDesign.
+
+## 2026-08-04 — Disección del IDML exitoso del Afiche Hanta
+
+- Se auditó en modo sólo lectura `Afiche_Hanta_A3_imagenes_incrustadas.idml` y se documentaron los resultados en `auditoria-idml-afiche-hanta.md`.
+- El paquete es un IDML auténtico y autocontenido: 90 entradas, una página A3 vertical, 47 stories conectadas a 47 marcos, 31 imágenes empaquetadas y referenciadas sin ausencias, 21 colores y perfiles FOGRA39/sRGB.
+- La prueba demuestra editabilidad real, integridad de referencias y viabilidad técnica de la salida IDML. No es una imagen plana ni un PDF colocado.
+- La principal limitación es autoral: una sola capa, cero grupos, página maestra sin contenido y prácticamente todo el formato tipográfico aplicado localmente sobre `Basic Paragraph`. Funciona como afiche terminado, pero no como sistema editorial reutilizable.
+- Las 31 imágenes son PNG RGB y registran 72 ppp efectivos. `Resources/Fonts.xml` conserva fuentes de plantilla y tres estados `Substituted`, mientras las stories usan Arial y Times New Roman. El futuro exportador debe limpiar recursos, controlar fuentes y ejecutar preflight de resolución/color.
+- Se propone usar el afiche como fixture dorado y construir un spike determinista de tres zonas con estilos nominales, capas, grupos, activos empaquetados e IDs estables antes de intentar el afiche completo.
