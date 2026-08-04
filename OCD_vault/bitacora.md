@@ -527,3 +527,13 @@ No registrar secretos, tokens, claves, contenido sensible de configuración ni d
 - En OCD los textos, activos, estructura, estilos y decisiones ya existen antes de exportar. El adaptador editorial debe traducirlos directamente a stories, marcos, vínculos, swatches, estilos, grupos, capas, páginas y masters.
 - Se consolidan tres grandes destinos desde un núcleo de diseño compartido: web/CMS, interfaces de aplicaciones y documentos impresos/editoriales. Cada adaptador conserva lo común y materializa reglas propias de su medio.
 - IDML queda definido como formato de destino editorial, no como lenguaje canónico universal. La disección del afiche sirve para aprender el contrato de salida y sus controles de calidad.
+
+## 2026-08-04 — Acceso de Desarrollo actualizado para la prueba humana
+
+- El acceso `Open CoDesign - Desarrollo` conservaba el lanzador correcto, pero ese lanzador seguía abriendo el paquete anterior en `apps/desktop/release/win-unpacked`.
+- Se actualizó el lanzador personal para abrir el build validado con el proveedor real: `release-edit-mode-live-20260804/win-unpacked/Open CoDesign.exe`. El acceso del menú Inicio y el del Escritorio comparten este lanzador; la instalación estable no fue reemplazada.
+- Se verificó que el acceso, el script y el nuevo ejecutable existen y que el script apunta al build esperado.
+- Santa Luisa de Palpi ya puede utilizarse como primera prueba humana integral: abrir el workspace existente, adjuntar un mockup o brief, formular una modificación, revisar el checklist delta, confirmar y observar la edición sobre el mismo `designId`.
+- Alcance actual de insumos: imágenes AVIF/BMP/GIF/JPEG/PNG/WEBP; documentos CSS/CSV/HTML/JSON/Markdown/SVG/TXT/XML/YAML; texto pegado y URL HTTPS. PDF todavía no es una entrada admitida por este flujo.
+- El checklist permite conservar, reemplazar mediante un valor JSON estructurado o dejar abierta cada definición detectada. Para crear una definición completamente nueva, por ahora se expresa en el prompt o se agrega como insumo textual y la IA la materializa como fila; aún no existe un botón de fila arbitraria manual.
+- Pendiente de aceptación humana: ejecutar el roundtrip completo con una copia o checkpoint del proyecto Santa Luisa, revisar fidelidad de la modificación localizada y comprobar que el preview conserva el resto del diseño.
