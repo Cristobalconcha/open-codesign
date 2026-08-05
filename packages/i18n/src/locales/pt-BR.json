@@ -41,6 +41,14 @@
     "conflicts": "Conflitos para revisar",
     "openQuestions": "Questões em aberto",
     "noVariables": "Nenhuma variável explícita foi detectada. Continue para a IA propô-las.",
+    "manual": {
+      "title": "Adicionar uma definição especial",
+      "description": "Registre uma regra que as fontes ou a IA não contemplaram. Ela será salva como uma decisão estruturada do usuário.",
+      "category": "Categoria",
+      "label": "Nome",
+      "instruction": "Instrução",
+      "add": "Adicionar à checklist"
+    },
     "notes": {
       "promptTruncated": "A descrição foi reduzida ao limite da análise.",
       "tooManySources": "Algumas referências foram omitidas porque a análise aceita no máximo 20 fontes.",

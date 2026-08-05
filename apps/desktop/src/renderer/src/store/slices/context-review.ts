@@ -8,6 +8,7 @@ import {
 } from '../../lib/context-review.js';
 import {
   buildEditContextV2,
+  createManualEditDefinition,
   type EditDecision,
   type EditSource,
   toAnalysisSources,
@@ -164,6 +165,7 @@ function patchReview(
 export interface ContextReviewSliceActions {
   openContextReview: CodesignState['openContextReview'];
   setContextReviewResolution: CodesignState['setContextReviewResolution'];
+  addContextReviewDefinition: CodesignState['addContextReviewDefinition'];
   setContextReviewOverride: CodesignState['setContextReviewOverride'];
   retryContextReview: CodesignState['retryContextReview'];
   confirmContextReview: CodesignState['confirmContextReview'];
@@ -187,6 +189,24 @@ export function makeContextReviewSlice(set: SetState, get: GetState): ContextRev
           decisions: {
             ...review.decisions,
             [id]: { resolution, override: previous?.override ?? '' },
+          },
+        },
+      });
+    },
+    addContextReviewDefinition(input) {
+      const review = get().contextReview;
+      if (review === null || review.status !== 'review') return;
+      const definition = createManualEditDefinition(
+        input,
+        review.detected.map((item) => item.id),
+      );
+      set({
+        contextReview: {
+          ...review,
+          detected: [...review.detected, definition],
+          decisions: {
+            ...review.decisions,
+            [definition.id]: { resolution: 'preserve', override: '' },
           },
         },
       });

@@ -41,6 +41,14 @@
     "conflicts": "Conflictos por revisar",
     "openQuestions": "Aspectos abiertos",
     "noVariables": "No se detectaron variables explícitas. Puedes continuar para que la IA las proponga.",
+    "manual": {
+      "title": "Agregar una definición especial",
+      "description": "Registra una regla que los insumos o la IA no contemplaron. Se guardará como una decisión estructurada aportada por el usuario.",
+      "category": "Categoría",
+      "label": "Nombre",
+      "instruction": "Instrucción",
+      "add": "Agregar a la checklist"
+    },
     "notes": {
       "promptTruncated": "El descriptor fue recortado al límite de análisis.",
       "tooManySources": "Algunas referencias se omitieron porque el análisis acepta un máximo de 20 fuentes.",

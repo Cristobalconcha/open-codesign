@@ -41,6 +41,14 @@
     "conflicts": "需要审查的冲突",
     "openQuestions": "待定问题",
     "noVariables": "未识别到明确的设计变量。可继续让 AI 提案。",
+    "manual": {
+      "title": "添加特殊定义",
+      "description": "记录来源或 AI 未涵盖的规则。它将作为用户提供的结构化决策保存。",
+      "category": "类别",
+      "label": "名称",
+      "instruction": "说明",
+      "add": "添加到检查清单"
+    },
     "notes": {
       "promptTruncated": "项目说明已按分析限制截断。",
       "tooManySources": "分析最多支持 20 个来源，部分参考资料已省略。",

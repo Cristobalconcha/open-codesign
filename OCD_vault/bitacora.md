@@ -496,6 +496,34 @@ No registrar secretos, tokens, claves, contenido sensible de configuración ni d
 - Verificaciones posteriores: Core 458/458, Desktop 1.424/1.424, typecheck Core/Desktop, Biome focalizado, build y smoke empaquetado con conexión real aprobados.
 - Build actualizado separado: `apps/desktop/release-edit-mode-live-20260804/open-codesign-0.2.1-x64-setup.exe`, 95.407.092 bytes, SHA-256 `A077A9CA6BDFFF999C2E04DCDB09D9582DC352711D7B6F9B0E3AB30C950BEFAF`. Es un build local sin firma y no reemplaza la instalación estable.
 
+## 2026-08-05 — Definiciones especiales aportadas por el usuario
+
+- Se cerró un vacío funcional de la checklist compartida por Crear y Editar:
+  ahora el usuario puede agregar una regla que no haya aparecido en los
+  insumos ni en el análisis de IA, sin tener que reformular todo el prompt.
+- La nueva fila solicita categoría, nombre e instrucción libre. Casos de uso:
+  animaciones, estados especiales, tratamientos particulares de imágenes o
+  cualquier condición no prevista por la taxonomía inicial.
+- La regla se convierte en una variable estructurada con ID estable y único,
+  `source: user-checklist`, autoridad confirmada, uso aprobado, confianza alta
+  y procedencia explícita `materialId: user`. No se presenta falsamente como
+  una inferencia de la IA.
+- Está disponible tanto en la revisión previa del compositor Crear/Editar como
+  en la pestaña independiente Editar. Al confirmar, pasa por el mismo contrato
+  `edit-context.json`, se acumula en el workspace y llega al agente como una
+  restricción vinculante.
+- La interfaz quedó traducida en inglés, español, portugués y chino.
+- Verificación: pruebas focalizadas 128/128; Shared 231/231; Core 458/458;
+  Desktop 1.426/1.426; typecheck de Shared, Core, Desktop e i18n; Biome enfocado
+  y build de producción aprobados. El primer pase completo tuvo un único fallo
+  de temporización preexistente en `generate.workspace-rename.test.ts`; aprobó
+  aislado 5/5 y la repetición completa aprobó 1.426/1.426.
+- El hook de pre-commit global volvió a inspeccionar los builds empaquetados y
+  no rastreados `release-edit-mode-*`, además de estado interno del vault. Se
+  omitió exclusivamente ese hook para el checkpoint después de aprobar Biome
+  sobre los 12 archivos fuente modificados y todas las verificaciones
+  anteriores; no se reescribieron artefactos ajenos o generados.
+
 ## 2026-08-04 — Atajo editorial validable mediante PDF editable en InDesign
 
 - Se confirmó que Open CoDesign ya exporta PDF y que InDesign 2026 incorpora `Archivo > Abrir PDF`, una conversión a documento editable distinta de la colocación tradicional del PDF como imagen enlazada.

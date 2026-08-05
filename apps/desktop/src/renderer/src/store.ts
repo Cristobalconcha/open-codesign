@@ -276,6 +276,11 @@ export interface CodesignState {
   }) => Promise<void>;
   openContextReview: (review: ContextReviewState) => Promise<void>;
   setContextReviewResolution: (id: string, resolution: 'preserve' | 'replace' | 'open') => void;
+  addContextReviewDefinition: (input: {
+    category: string;
+    label: string;
+    instruction: string;
+  }) => void;
   setContextReviewOverride: (id: string, override: string) => void;
   retryContextReview: () => Promise<void>;
   confirmContextReview: () => Promise<void>;

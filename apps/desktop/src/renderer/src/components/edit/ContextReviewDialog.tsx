@@ -7,12 +7,14 @@ import {
   DEFAULT_AUTHORITY_HINTS,
   DEFAULT_USAGE_HINTS,
 } from './ContextReviewList';
+import { ManualDefinitionForm } from './ManualDefinitionForm';
 
 export function ContextReviewDialog() {
   const t = useT();
   const review = useCodesignStore((state) => state.contextReview);
   const setResolution = useCodesignStore((state) => state.setContextReviewResolution);
   const setOverride = useCodesignStore((state) => state.setContextReviewOverride);
+  const addDefinition = useCodesignStore((state) => state.addContextReviewDefinition);
   const retry = useCodesignStore((state) => state.retryContextReview);
   const confirm = useCodesignStore((state) => state.confirmContextReview);
   const cancel = useCodesignStore((state) => state.cancelContextReview);
@@ -99,6 +101,21 @@ export function ContextReviewDialog() {
               onOverride={setOverride}
               disabled={busy}
               copy={copy}
+            />
+          ) : null}
+
+          {review.status === 'review' ? (
+            <ManualDefinitionForm
+              disabled={busy}
+              onAdd={addDefinition}
+              copy={{
+                title: t('contextReview.manual.title'),
+                description: t('contextReview.manual.description'),
+                category: t('contextReview.manual.category'),
+                label: t('contextReview.manual.label'),
+                instruction: t('contextReview.manual.instruction'),
+                add: t('contextReview.manual.add'),
+              }}
             />
           ) : null}
 

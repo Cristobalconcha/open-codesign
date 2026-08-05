@@ -30,6 +30,53 @@ export interface EditAnalysisGap {
   reason: string;
 }
 
+export interface ManualEditDefinitionInput {
+  category: string;
+  label: string;
+  instruction: string;
+}
+
+/** Build a user-authored checklist row without pretending it was detected by
+ * the model. The stable-ish slug is made unique against the current round;
+ * provenance remains explicitly `user`, which the core context contract
+ * reserves for manual decisions. */
+export function createManualEditDefinition(
+  input: ManualEditDefinitionInput,
+  takenIds: Iterable<string>,
+): EditContextDefinition {
+  const category = input.category.trim() || 'special';
+  const label = input.label.trim();
+  const instruction = input.instruction.trim();
+  if (label.length === 0 || instruction.length === 0) {
+    throw new Error('Label and instruction are required.');
+  }
+
+  const used = new Set(takenIds);
+  const base =
+    `user-${category}-${label}`
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 80) || 'user-special-definition';
+  let id = base;
+  for (let suffix = 2; used.has(id); suffix += 1) id = `${base}-${suffix}`;
+
+  return {
+    id,
+    category,
+    label,
+    value: { instruction },
+    detectedValue: { instruction },
+    resolution: 'preserve',
+    authority: 'confirmed',
+    usage: 'approved',
+    confidence: 'high',
+    source: 'user-checklist',
+    evidence: 'Added manually during design review.',
+    provenance: [{ materialId: 'user', excerpt: instruction }],
+  };
+}
+
 export function defaultEditResolution(
   definition: EditContextDefinition,
 ): EditDecision['resolution'] {

@@ -8,9 +8,11 @@ import {
   DEFAULT_AUTHORITY_HINTS,
   DEFAULT_USAGE_HINTS,
 } from '../../components/edit/ContextReviewList';
+import { ManualDefinitionForm } from '../../components/edit/ManualDefinitionForm';
 import {
   buildEditContextV2,
   classifyEditSourceFile,
+  createManualEditDefinition,
   defaultEditResolution,
   type EditDecision,
   type EditSource,
@@ -495,6 +497,29 @@ export function EditTab() {
             onOverride={setOverride}
             disabled={busy}
             copy={REVIEW_COPY}
+          />
+          <ManualDefinitionForm
+            disabled={busy}
+            onAdd={(input) => {
+              const definition = createManualEditDefinition(
+                input,
+                detected.map((item) => item.id),
+              );
+              setDetected((current) => [...current, definition]);
+              setDecisions((current) => ({
+                ...current,
+                [definition.id]: { resolution: 'preserve', override: '' },
+              }));
+            }}
+            copy={{
+              title: 'Add a special definition',
+              description:
+                'Record a rule the sources or AI did not cover. It remains structured and attributed to you.',
+              category: 'Category',
+              label: 'Name',
+              instruction: 'Instruction',
+              add: 'Add to checklist',
+            }}
           />
 
           {analysis.conflicts.length > 0 && (

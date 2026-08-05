@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildEditContextV2,
   classifyEditSourceFile,
+  createManualEditDefinition,
   type EditSource,
   MAX_EDIT_SOURCE_BYTES,
   nextSourceId,
@@ -10,6 +11,30 @@ import {
   parseReplacementValue,
   toAnalysisSources,
 } from './edit-sources';
+
+describe('createManualEditDefinition', () => {
+  it('creates a structured user-authored row and disambiguates its id', () => {
+    const definition = createManualEditDefinition(
+      {
+        category: 'Motion',
+        label: 'Image hover',
+        instruction: 'Scale from 90% to 100% on hover.',
+      },
+      ['user-motion-image-hover'],
+    );
+
+    expect(definition).toMatchObject({
+      id: 'user-motion-image-hover-2',
+      category: 'Motion',
+      label: 'Image hover',
+      value: { instruction: 'Scale from 90% to 100% on hover.' },
+      authority: 'confirmed',
+      usage: 'approved',
+      source: 'user-checklist',
+      provenance: [{ materialId: 'user' }],
+    });
+  });
+});
 
 const sources: EditSource[] = [
   {

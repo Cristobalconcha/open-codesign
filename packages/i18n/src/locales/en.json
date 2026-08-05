@@ -41,6 +41,14 @@
     "conflicts": "Conflicts to review",
     "openQuestions": "Open questions",
     "noVariables": "No explicit design variables were detected. Continue to let the AI propose them.",
+    "manual": {
+      "title": "Add a special definition",
+      "description": "Record a rule the sources or AI did not cover. It will be stored as a structured, user-authored decision.",
+      "category": "Category",
+      "label": "Name",
+      "instruction": "Instruction",
+      "add": "Add to checklist"
+    },
     "notes": {
       "promptTruncated": "The project brief was truncated to the analysis limit.",
       "tooManySources": "Some references were omitted because the analysis accepts at most 20 sources.",

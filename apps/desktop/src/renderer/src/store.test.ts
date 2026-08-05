@@ -360,6 +360,40 @@ describe('CREATE evidence review gate', () => {
     });
   });
 
+  it('adds a manual special definition to the reviewed context', async () => {
+    const host = reviewHost();
+    setWorkspaceBackedDesign();
+    await useCodesignStore.getState().sendPrompt({ prompt: 'Create the landing page.' });
+
+    useCodesignStore.getState().addContextReviewDefinition({
+      category: 'motion',
+      label: 'Image hover',
+      instruction: 'Scale images from 90% to 100% on hover.',
+    });
+    await useCodesignStore.getState().confirmContextReview();
+
+    expect(host.initWorkspaceSources).toHaveBeenCalledWith(
+      expect.objectContaining({
+        editContext: expect.objectContaining({
+          detected: expect.arrayContaining([
+            expect.objectContaining({
+              id: 'user-motion-image-hover',
+              value: { instruction: 'Scale images from 90% to 100% on hover.' },
+              source: 'user-checklist',
+              provenance: expect.arrayContaining([
+                {
+                  materialId: 'user',
+                  excerpt: 'Scale images from 90% to 100% on hover.',
+                },
+              ]),
+            }),
+          ]),
+          active: expect.arrayContaining(['user-motion-image-hover']),
+        }),
+      }),
+    );
+  });
+
   it('restores the prompt and preserves attachments when the user cancels', async () => {
     reviewHost();
     setWorkspaceBackedDesign();
